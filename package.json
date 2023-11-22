@@ -1,0 +1,46 @@
+{
+  "name": "dreo-headwind",
+  "version": "0.0.1",
+  "description": "Headwind-like accessory using a Dreo smart fan.",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "axios": "^1.6.2",
+    "crypto-js": "^4.2.0",
+    "reconnecting-websocket": "^4.4.0",
+    "tslog": "^4.9.2",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "@types/crypto-js": "^4.2.1",
+    "@types/ws": "^8.5.9",
+    "typescript": "^5.2.2"
+  },
+  "files": [
+    "lib/"
+  ],
+  "directories": {
+    "example": "./sample",
+    "lib": "./src"
+  },
+  "keywords": [
+    "Cycling",
+    "ANT",
+    "ANT+",
+    "DREO"
+  ],
+  "author": "Eduardo Abe",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/edabe/dreo-headwind.git"
+  },
+  "bugs": {
+    "url": "https://github.com/edabe/dreo-headwind/issues"
+  },
+  "homepage": "https://github.com/edabe/dreo-headwind#readme"
+}
