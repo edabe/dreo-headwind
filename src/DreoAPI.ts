@@ -56,9 +56,9 @@ export type DreoState = {
   windlevel: number
 }
 
-export enum AirCirculatorOscillation { 'NONE', 'HORIZONTAL', 'VERTICAL', 'HORIZONTAL_VERTICAL' };
-export enum AirCirculatorMode { 'NORMAL' = 1, 'NEUTRAL', 'SLEEP', 'AUTO', 'TURBO' };
-export enum AirCirculatorCalibration { 'HORIZONTAL', 'VERTICAL', 'HORIZONTAL_VERTICAL' };
+export enum AirCirculatorOscillation { 'NONE', 'HORIZONTAL', 'VERTICAL', 'HORIZONTAL_VERTICAL' }
+export enum AirCirculatorMode { 'NORMAL' = 1, 'NEUTRAL', 'SLEEP', 'AUTO', 'TURBO' }
+export enum AirCirculatorCalibration { 'HORIZONTAL', 'VERTICAL', 'HORIZONTAL_VERTICAL' }
 
 export type DreoCommands = {
   oscmode?: AirCirculatorOscillation,
@@ -140,7 +140,7 @@ export class DreoAPI {
       },
     })
     .then((response) => {
-      let payload = response.data;
+      const payload = response.data;
       if (payload.data && payload.data.access_token) {
         // Success
         this.auth = payload.data as DreoAuth;
@@ -218,7 +218,7 @@ export class DreoAPI {
     })
     // Catch and log errors
     .then((response) => {
-      let payload = response.data;
+      const payload = response.data;
       if (payload.data && payload.data.list) {
         devices = payload.data.list.map((device: any) => {
           return (({ deviceId, sn, brand, model, productId, productName, deviceName, shared, series, seriesName }) => ({ 
@@ -264,7 +264,7 @@ export class DreoAPI {
       },
     })
     .then((response) => {
-      let payload = response.data;
+      const payload = response.data;
       if (payload.data && payload.data.productId) {
         state = (({ sn, productId, region, mixed }) => ({ 
             childlockon: mixed.childlockon.state,
@@ -347,18 +347,18 @@ export class DreoAPI {
    */
   public async airCirculatorCruise(deviceSn: string, oscillation: AirCirculatorOscillation, horizontal: [number, number], vertical: [number, number]): Promise<void> {
     if (oscillation !== AirCirculatorOscillation.NONE) {
-      let hDirection = horizontal[0];
-      let hAngle = horizontal[1] < 30 ? 30 : horizontal[1] > 120 ? 120 : horizontal[1];
-      let hMin = Math.max(hDirection - Math.floor(hAngle / 2), -60);
-      let hMax = Math.min(hMin + hAngle, 60);
+      const hDirection = horizontal[0];
+      const hAngle = horizontal[1] < 30 ? 30 : horizontal[1] > 120 ? 120 : horizontal[1];
+      const hMin = Math.max(hDirection - Math.floor(hAngle / 2), -60);
+      const hMax = Math.min(hMin + hAngle, 60);
 
-      let vDirection = vertical[0];
-      let vAngle = vertical[1];
-      let vMin = Math.max(vDirection - Math.floor(vAngle / 2), 0);
-      let vMax = Math.min(vMin + vAngle, 90);
+      const vDirection = vertical[0];
+      const vAngle = vertical[1];
+      const vMin = Math.max(vDirection - Math.floor(vAngle / 2), 0);
+      const vMax = Math.min(vMin + vAngle, 90);
 
       await this.airCirculatorOscillate(deviceSn, oscillation); // start oscillation first
-      let cruiseconf = `${vMax.toString()},${hMax.toString()},${vMin.toString()},${hMin.toString()}`;
+      const cruiseconf = `${vMax.toString()},${hMax.toString()},${vMin.toString()},${hMin.toString()}`;
       await this.sendCommand(deviceSn, {'cruiseconf': cruiseconf}, 1000);
     }
   }

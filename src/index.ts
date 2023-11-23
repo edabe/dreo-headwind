@@ -6,15 +6,6 @@ import ReconnectingWebSocket from 'reconnecting-websocket';
 const logger = new Logger<ILogObj>({ name: 'dreo-headwind-logger' });
 const dreo = new DreoAPI({ 'logger': logger, 'server': 'us', 'email': 'abe.shop@gmail.com', 'password': 'dreo-Linlin&Edu-1116' });
 
-function sendCommand(device: string, parameters: object, websocket: ReconnectingWebSocket) {
-    websocket.send(JSON.stringify({
-        'devicesn': device,
-        'method': 'control',
-        'params': parameters,
-        'timestamp': Date.now(),
-    }));
-}
-
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 (async () => {
@@ -27,8 +18,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     await dreo.airCirculatorPowerOn(serialNumber, true);
 
     function setSpeed() {
-        let speed = 1 + Math.floor(Math.random() * 5);
-        let timeout = 1000 * (8 + Math.floor(Math.random() * 5));
+        const speed = 1 + Math.floor(Math.random() * 5);
+        const timeout = 1000 * (8 + Math.floor(Math.random() * 5));
         logger.info('Setting speed to ', speed, 'Waiting for', timeout);
         dreo.airCirculatorSpeed(serialNumber, speed);
         setTimeout(setSpeed, timeout);
@@ -37,8 +28,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     logger.info('------- starting...');
 
     setInterval(() => {
-        let oscillation = Math.floor(Math.random() * 4) as AirCirculatorOscillation;
-        let profile = DreoProfiles[oscillation];
+        const oscillation = Math.floor(Math.random() * 4) as AirCirculatorOscillation;
+        const profile = DreoProfiles[oscillation];
         logger.info('Applying profile', profile.toString());
         profile.apply(serialNumber, dreo);
     }, 30000);
