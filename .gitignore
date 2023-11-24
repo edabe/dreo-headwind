@@ -1,3 +1,4 @@
 node_modules/
 dist/
 config/config.json
+.vscode/settings.json
