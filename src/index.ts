@@ -103,17 +103,24 @@ async function main() {
 
 // Clean app exit
 async function onAppExit(error?: Error) {
-    let retCode = 0;
-    if (error) {
-        logger.info('Application exiting due to error:', error);
-        retCode = -1;
+    const timerId = setTimeout( () => { throw new Error('Error: timeout trying to exit the app')}, 20000);
+    try {
+        let retCode = 0;
+        if (error) {
+            logger.info('Application exiting due to error:', error);
+            retCode = -1;
+        }
+        else {
+            logger.info('Exiting application');
+        }
+        await heartRateMode.cleanup();
+        await ant.close();    
+        process.exit(retCode);
+    } catch (err) {
+        clearTimeout(timerId);
+        logger.error(err);
+        process.exit(-1);
     }
-    else {
-        logger.info('Exiting application');
-    }
-    await heartRateMode.cleanup();
-	await ant.close();
-	process.exit(retCode);
 }
 process.on('SIGINT',  async () => await onAppExit()); // CTRL+C
 process.on('SIGQUIT', async () => await onAppExit()); // Keyboard quit
