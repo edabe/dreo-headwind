@@ -103,7 +103,6 @@ export class DreoAPI {
     const fixedconf = state?.fixedconf.split(',') || ['0','0']; // fixedconf[0] is vertical, fixedconf[1] is horizontal
     const oldH = parseInt(fixedconf[1]) | 0;
     const oldV = parseInt(fixedconf[0]) | 0;
-    console.log(`${newV} - ${oldV}, ${newH} - ${oldH}`);
     return (Math.abs(newV - oldV) + Math.abs(newH - oldH)) / 5 * 1000;
   }
   
@@ -145,11 +144,13 @@ export class DreoAPI {
         // Success
         this.auth = payload.data as DreoAuth;
       } else {
-        this.config.logger.error('error retrieving token:', payload);
+        this.config.logger.error('Error retrieving token:', payload);
+        throw new Error('Error retrieving token');
       }
     })
     .catch((error) => {
-      this.config.logger.error('error retrieving token:', error);
+      this.config.logger.error('Error retrieving token:', error.data);
+      throw new Error('Error retrieving token');
     });
   }
       
@@ -187,6 +188,7 @@ export class DreoAPI {
       'params': parameters,
       'timestamp': Date.now()
     });
+    // this.config.logger.info('---- sending message', message);
     this.webSocket?.send(message);
     await sleep(wait); // wait for the operation to complete
   }
@@ -302,7 +304,10 @@ export class DreoAPI {
   }
 
   public async airCirculatorPowerOn(deviceSn: string, powerOn: boolean): Promise<void> {
-    await this.sendCommand(deviceSn, {'poweron': powerOn}, 0);
+    const state = await this.getState(deviceSn);
+    if (!state?.poweron) {
+      await this.sendCommand(deviceSn, {'poweron': powerOn}, 0);
+    }
   }
 
   public async airCirculatorOscillate(deviceSn: string, oscillation: AirCirculatorOscillation): Promise<void> {
