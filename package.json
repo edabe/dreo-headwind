@@ -14,12 +14,14 @@
     "axios": "^1.6.2",
     "crypto-js": "^4.2.0",
     "incyclist-ant-plus": "github:edabe/incyclist-ant-plus",
+    "nconf": "^0.12.1",
     "reconnecting-websocket": "^4.4.0",
     "tslog": "^4.9.2",
     "ws": "^8.14.2"
   },
   "devDependencies": {
     "@types/crypto-js": "^4.2.1",
+    "@types/nconf": "^0.10.6",
     "@types/node": "^20.9.4",
     "@types/ws": "^8.5.9",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
