@@ -24,6 +24,7 @@ class OscillateHorizontalProfile extends DreoProfile {
     apply(serialNumber: string, dreoApi: DreoAPI) {
         (async () => {
             await dreoApi.airCirculatorPowerOn(serialNumber, true);
+            await dreoApi.airCirculatorPosition(serialNumber, [0, 45]);
             await dreoApi.airCirculatorOscillate(serialNumber, AirCirculatorOscillation.HORIZONTAL);
             await dreoApi.airCirculatorCruise(serialNumber, AirCirculatorOscillation.HORIZONTAL, CRUISE_HORIZONTAL, CRUISE_VERTICAL);
         })();
@@ -35,6 +36,7 @@ class OscillateVerticalProfile extends DreoProfile {
     apply(serialNumber: string, dreoApi: DreoAPI) {
         (async () => {
             await dreoApi.airCirculatorPowerOn(serialNumber, true);
+            await dreoApi.airCirculatorPosition(serialNumber, [0, 45]);
             await dreoApi.airCirculatorOscillate(serialNumber, AirCirculatorOscillation.HORIZONTAL);
             await dreoApi.airCirculatorCruise(serialNumber, AirCirculatorOscillation.VERTICAL, CRUISE_HORIZONTAL, CRUISE_VERTICAL);
         })();
@@ -62,9 +64,22 @@ class Center45Degrees extends DreoProfile {
     }
 }
 
+class Center0Degrees extends DreoProfile {
+    name = 'CENTER_0_DEGREE';
+    apply(serialNumber: string, dreoApi: DreoAPI) {
+        (async () => {
+            await dreoApi.airCirculatorPowerOn(serialNumber, true);
+            await dreoApi.airCirculatorPosition(serialNumber, [0, 0]);
+        })();
+    }
+}
+
+export enum DreoProfileType { 'CENTER_0', 'CENTER_45', 'HORIZONTAL', 'VERTICAL', 'HORIZONTAL_VERTICAL' }
+
 export const DreoProfiles = {
-    [AirCirculatorOscillation.HORIZONTAL]: new OscillateHorizontalProfile(),
-    [AirCirculatorOscillation.VERTICAL]: new OscillateVerticalProfile(),
-    [AirCirculatorOscillation.HORIZONTAL_VERTICAL]: new OscillateHorizontalVerticalProfile(),
-    [AirCirculatorOscillation.NONE]: new Center45Degrees()
+    [DreoProfileType.HORIZONTAL]: new OscillateHorizontalProfile(),
+    [DreoProfileType.VERTICAL]: new OscillateVerticalProfile(),
+    [DreoProfileType.HORIZONTAL_VERTICAL]: new OscillateHorizontalVerticalProfile(),
+    [DreoProfileType.CENTER_45]: new Center45Degrees(),
+    [DreoProfileType.CENTER_0]: new Center0Degrees()
 }
