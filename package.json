@@ -32,11 +32,10 @@
     "typescript": "^5.2.2"
   },
   "files": [
-    "lib/"
+    "dist/"
   ],
   "directories": {
-    "example": "./sample",
-    "lib": "./src"
+    "dist": "./src"
   },
   "keywords": [
     "Cycling",
