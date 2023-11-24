@@ -17,23 +17,27 @@ import { DreoProfileType, DreoProfiles } from "./DreoProfile";
  * and speed as follows:
  * 
  * hrZone[0] (Zone1): CENTER_0             Speed 1
- * hrZone[1] (Zone2): HORIZONTAL_VERTICAL  Speed 1
- * hrZone[2] (Zone3): CENTER_45            Speed 2 - Speed 3
+ * hrZone[1] (Zone2): CENTER_30            Speed 1
+ * hrZone[2] (Zone3): CENTER_30            Speed 2 - Speed 3
  * hrZone[3] (Zone4): VERTICAL             Speed 3 - Speed 4
- * hrZone[4] (Zone5): VERTICAL             Speed 4 - Speed 6
+ * hrZone[4] (Zone5): VERTICAL             Speed 4 - Speed 6 
  */
 export default class HeartRateMode {
     private logger: Logger<ILogObj>;
     private dreo: DreoAPI;
     private dreoSerialNumber: string;
     private hrZone: number[];
-    private hrHistory: number[] = new Array(30);
+    private hrHistory: number[];
     private hrCurrent: number;
     private profileCurrent: DreoProfileType;
     private intervalId: NodeJS.Timeout;
     private index: number = 0;
+    private busy: boolean = false;
     constructor(logger: Logger<ILogObj>, nconf: Provider) {
         this.logger = logger;
+
+        const hrconfig = nconf.get('mode.heartrate');
+        this.hrHistory = new Array(hrconfig.sampleSize);
 
         const dreoconfig = nconf.get('dreo.config');
         this.dreo = new DreoAPI({ 
@@ -63,119 +67,75 @@ export default class HeartRateMode {
             this.hrHistory[this.index++] = this.hrCurrent;
             if (this.index === this.hrHistory.length) {
                 // 30 seconds passed (30 samples): Update the fan profile
-                await this.adjustDreoProfile();
+                // This should NOT wait for the adjustDreoProfile function
+                this.adjustDreoProfile();
                 this.index = 0;
-            }
+            } 
         }, 1000);
     }
 
+    private async applyProfile(profileType: DreoProfileType, speed: number): Promise<void> {
+        if (this.profileCurrent !== profileType) {
+        await DreoProfiles[profileType].apply(this.dreoSerialNumber, this.dreo);
+            this.profileCurrent = profileType;
+        }
+        await this.dreo.airCirculatorSpeed(this.dreoSerialNumber, speed);
+    }
+
     private async adjustDreoProfile(): Promise<void> {
-        const dreoState = await this.dreo.getState(this.dreoSerialNumber);
-        const avgHr = this.hrHistory.reduce((acc, value) => { return acc + value }) / this.hrHistory.length;
-        if (avgHr > this.hrZone[4]) {
-            // HR is Zone 5
-            this.logger.info('Adjusting DREO profile to Zone 5', avgHr);
-            if (!dreoState?.poweron) {
-                // Turn DREO on
-                this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, true);
+        if (!this.busy) { // ignore command if other thread is still adjusting a profile
+            this.busy = true;
+            const dreoState = await this.dreo.getState(this.dreoSerialNumber);
+            const avgHr = this.hrHistory.reduce((acc, value) => { return acc + value }) / this.hrHistory.length;
+            if (avgHr > this.hrZone[4]) {
+                // HR is Zone 5
+                this.logger.info('Adjusting DREO profile to Zone 5', avgHr);
+                // Adjust speed based on current speed (state)
+                const speed = dreoState?.windlevel === 4 ? 5 : dreoState?.windlevel === 5 ? 6 : 4;
+                await this.applyProfile(DreoProfileType.VERTICAL, speed);
             }
-            if (this.profileCurrent !== DreoProfileType.VERTICAL) {
-                DreoProfiles[DreoProfileType.VERTICAL].apply(this.dreoSerialNumber, this.dreo);
-                this.profileCurrent = DreoProfileType.VERTICAL;
+            else if (avgHr > this.hrZone[3]) {
+                // HR is Zone 4
+                this.logger.info('Adjusting DREO profile to Zone 4', avgHr);
+                // Adjust speed based on current speed (state)
+                const speed = dreoState?.windlevel === 3 ? 4 : 3;
+                await this.applyProfile(DreoProfileType.VERTICAL, speed);
             }
-            // Adjust speed based on current speed (state)
-            let speed = 4;
-            switch(dreoState?.windlevel) {
-                case 4:
-                    // Set speed to 5
-                    speed = 5;
-                    break
-                case 5:
-                    // Set speed to 6
-                    speed = 6;
-                    break;
+            else if (avgHr > this.hrZone[2]) {
+                // HR is Zone 3
+                this.logger.info('Adjusting DREO profile to Zone 3', avgHr);
+                // Adjust speed based on current speed (state)
+                const speed = dreoState?.windlevel === 2 ? 3 : 2;
+                await this.applyProfile(DreoProfileType.CENTER_30, speed);
             }
-            await this.dreo.airCirculatorSpeed(this.dreoSerialNumber, speed);
+            else if (avgHr > this.hrZone[1]) {
+                // HR is Zone 2
+                this.logger.info('Adjusting DREO profile to Zone 2', avgHr);
+                await this.applyProfile(DreoProfileType.CENTER_30, 1);
+            }
+            else if (avgHr > this.hrZone[0]) {
+                // HR is Zone 1 
+                this.logger.info('Adjusting DREO profile to Zone 1', avgHr);
+                await this.applyProfile(DreoProfileType.CENTER_0, 1);
+            }
+            else {
+                // Turn DREO off
+                this.logger.info('Adjusting DREO profile to Zone 0', avgHr, dreoState?.poweron);
+                if (dreoState?.poweron) {
+                    await this.dreo.airCirculatorSpeed(this.dreoSerialNumber, 1);
+                    await this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, false);
+                }
+            }
+            this.busy = false;
         }
-        else if (avgHr > this.hrZone[3]) {
-            // HR is Zone 4
-            this.logger.info('Adjusting DREO profile to Zone 4', avgHr);
-            if (!dreoState?.poweron) {
-                // Turn DREO on
-                this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, true);
-            }
-            if (this.profileCurrent !== DreoProfileType.VERTICAL) {
-                DreoProfiles[DreoProfileType.VERTICAL].apply(this.dreoSerialNumber, this.dreo);
-                this.profileCurrent = DreoProfileType.VERTICAL;
-            }
-            // Adjust speed based on current speed (state)
-            let speed = 3;
-            switch(dreoState?.windlevel) {
-                case 3:
-                    // Set speed to 4
-                    speed = 4;
-                    break
-            }
-            await this.dreo.airCirculatorSpeed(this.dreoSerialNumber, speed);
-        }
-        else if (avgHr > this.hrZone[2]) {
-            // HR is Zone 3
-            this.logger.info('Adjusting DREO profile to Zone 3', avgHr);
-            if (!dreoState?.poweron) {
-                // Turn DREO on
-                this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, true);
-            }
-            if (this.profileCurrent !== DreoProfileType.CENTER_45) {
-                DreoProfiles[DreoProfileType.CENTER_45].apply(this.dreoSerialNumber, this.dreo);
-                this.profileCurrent = DreoProfileType.CENTER_45;
-            }
-            // Adjust speed based on current speed (state)
-            let speed = 2;
-            switch(dreoState?.windlevel) {
-                case 2:
-                    // Set speed to 3
-                    speed = 3;
-                    break
-            }
-            await this.dreo.airCirculatorSpeed(this.dreoSerialNumber, speed);
-        }
-        else if (avgHr > this.hrZone[1]) {
-            // HR is Zone 2
-            this.logger.info('Adjusting DREO profile to Zone 2', avgHr);
-            if (!dreoState?.poweron) {
-                // Turn DREO on
-                this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, true);
-            }
-            if (this.profileCurrent !== DreoProfileType.HORIZONTAL_VERTICAL) {
-                DreoProfiles[DreoProfileType.HORIZONTAL_VERTICAL].apply(this.dreoSerialNumber, this.dreo);
-                this.profileCurrent = DreoProfileType.HORIZONTAL_VERTICAL;
-            }
-            await this.dreo.airCirculatorSpeed(this.dreoSerialNumber, 1);
-        }
-        else if (avgHr > this.hrZone[0]) {
-            // HR is Zone 1 
-            this.logger.info('Adjusting DREO profile to Zone 1', avgHr);
-            if (!dreoState?.poweron) {
-                // Turn DREO on
-                this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, true);
-            }
-            if (this.profileCurrent !== DreoProfileType.CENTER_0) {
-                DreoProfiles[DreoProfileType.CENTER_0].apply(this.dreoSerialNumber, this.dreo);
-                this.profileCurrent = DreoProfileType.CENTER_0;
-            }
-            await this.dreo.airCirculatorSpeed(this.dreoSerialNumber, 1);
-        }
-        else {
-            // Turn DREO on
-            this.logger.info('Adjusting DREO profile to Zone 0', avgHr);
-            this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, false);
-        }
+        else this.logger.info('Skipping DREO profile adjustment: busy');
     }
 
     public async cleanup(): Promise<void> {
         // Clean up timers
         clearInterval(this.intervalId);
-        this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, false);
+        await this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, false);
+        this.dreo.disconnect();
     }
  
     public onDataHandler(data: SensorState): void {
