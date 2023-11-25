@@ -83,7 +83,7 @@ export default class HeartRateMode {
     }
 
     private async adjustDreoProfile(): Promise<void> {
-        if (!this.busy) { // ignore command if other thread is still adjusting a profile
+        if (!this.busy && !isNaN(this.hrCurrent)) { // ignore command if other thread is still adjusting a profile
             this.busy = true;
             const dreoState = await this.dreo.getState(this.dreoSerialNumber);
             const avgHr = this.hrHistory.reduce((acc, value) => { return acc + value }) / this.hrHistory.length;
@@ -128,7 +128,7 @@ export default class HeartRateMode {
             }
             this.busy = false;
         }
-        else this.logger.info('Skipping DREO profile adjustment: busy');
+        else this.logger.info('Skipping DREO profile adjustment: busy or no data');
     }
 
     public async cleanup(): Promise<void> {
