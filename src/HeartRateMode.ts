@@ -37,7 +37,7 @@ export default class HeartRateMode {
         this.logger = logger;
 
         const hrconfig = nconf.get('mode.heartrate');
-        this.hrHistory = new Array(hrconfig.sampleSize);
+        this.hrHistory = new Array(hrconfig?.sampleSize | 30);
 
         const dreoconfig = nconf.get('dreo.config');
         this.dreo = new DreoAPI({ 
