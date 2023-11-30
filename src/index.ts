@@ -1,6 +1,6 @@
 import { Logger, ILogObj } from 'tslog';
 import nconf from 'nconf';
-import { AntDevice, Channel, HeartRateSensor, BicyclePowerSensor, FitnessEquipmentSensor, CadenceSensor, ISensor, HeartRateSensorState  } from "incyclist-ant-plus";
+import { AntDevice, Channel, HeartRateSensor, BicyclePowerSensor, FitnessEquipmentSensor, CadenceSensor, ISensor  } from "incyclist-ant-plus";
 import { SensorState } from 'incyclist-ant-plus/lib/sensors/base-sensor';
 import HeartRateMode from './HeartRateMode';
 
@@ -75,7 +75,11 @@ async function setupSensors(channel: Channel): Promise<void> {
 
 // Handle the sensor messages
 function onDetected(profile: string, deviceId: number): void {
-    logger.info('Detected', profile, deviceId);
+    switch(profile) {
+        case 'HR':
+            heartRateMode?.onDetectedHandler();
+            break;
+    }
 }
 
 function onData(profile: string, deviceId: number, data: SensorState): void {
@@ -94,7 +98,7 @@ async function main() {
     // Channel and sensors ready, crate the HeartRate smart mode
     heartRateMode = new HeartRateMode(logger, nconf);
 
-    // channel.on('detected', onDetected);
+    channel.on('detected', onDetected);
     channel.on('data', onData);
 
     channel.startScanner();
