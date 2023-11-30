@@ -49,6 +49,14 @@ class OscillateHorizontalVerticalProfile extends DreoProfile {
     }
 }
 
+class Center45Degrees extends DreoProfile {
+    name = 'CENTER_45_DEGREE';
+    async apply(serialNumber: string, dreoApi: DreoAPI) {
+        await dreoApi.airCirculatorPowerOn(serialNumber, true);
+        await dreoApi.airCirculatorPosition(serialNumber, [0, 45]);
+    }
+}
+
 class Center30Degrees extends DreoProfile {
     name = 'CENTER_30_DEGREE';
     async apply(serialNumber: string, dreoApi: DreoAPI) {
@@ -65,12 +73,13 @@ class Center0Degrees extends DreoProfile {
     }
 }
 
-export enum DreoProfileType { 'CENTER_0', 'CENTER_30', 'HORIZONTAL', 'VERTICAL', 'HORIZONTAL_VERTICAL' }
+export enum DreoProfileType { 'CENTER_0', 'CENTER_30', 'CENTER_45', 'HORIZONTAL', 'VERTICAL', 'HORIZONTAL_VERTICAL' }
 
 export const DreoProfiles = {
     [DreoProfileType.HORIZONTAL]: new OscillateHorizontalProfile(),
     [DreoProfileType.VERTICAL]: new OscillateVerticalProfile(),
     [DreoProfileType.HORIZONTAL_VERTICAL]: new OscillateHorizontalVerticalProfile(),
+    [DreoProfileType.CENTER_45]: new Center45Degrees(),
     [DreoProfileType.CENTER_30]: new Center30Degrees(),
     [DreoProfileType.CENTER_0]: new Center0Degrees()
 }
