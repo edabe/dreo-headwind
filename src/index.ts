@@ -74,7 +74,7 @@ async function setupSensors(channel: Channel): Promise<void> {
 }
 
 // Handle the sensor messages
-function onDetected(profile: string, deviceId: number): void {
+function onDetected(profile: string): void {
     switch(profile) {
         case 'HR':
             heartRateMode?.onDetectedHandler();

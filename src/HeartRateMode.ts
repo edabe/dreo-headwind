@@ -21,16 +21,18 @@ import { DreoProfileType, DreoProfiles } from "./DreoProfile";
  * hrZone[0] (Zone1): CENTER_0             Speed 1
  * hrZone[1] (Zone2): CENTER_45            Speed 1 - Speed 2
  * hrZone[2] (Zone3): CENTER_45            Speed 2 - Speed 3
- * hrZone[3] (Zone4): VERTICAL             Speed 3 - Speed 4
- * hrZone[4] (Zone5): VERTICAL             Speed 4 - Speed 6 
+ * hrZone[3] (Zone4): VERTICAL             Speed 3 - Speed 5
+ * hrZone[4] (Zone5): VERTICAL             Speed 5 - Speed 7 
  */
 export default class HeartRateMode {
     private logger: Logger<ILogObj>;
     private dreo: DreoAPI;
     private dreoSerialNumber: string;
     private hrZone: number[];
+    private hrMax: number;
     private hrHistory: number[];
-    private profileCurrent: DreoProfileType;
+    private currentProfile: DreoProfileType;
+    private currentSpeed: number;
     private timeoutId: NodeJS.Timeout;
     private index: number = 0;
     private isBusy: boolean = false;
@@ -58,18 +60,21 @@ export default class HeartRateMode {
             heartrate.zones[3][0] * heartrate.max / 100,
             heartrate.zones[4][0] * heartrate.max / 100
         ];
-        logger.info('Heart rate zones: ', this.hrZone);
+        this.hrMax = heartrate.max;
+        logger.info('Heart rate zones: ', this.hrZone, this.hrMax);
 
         // Bind event handler to this in order to set the right context
         this.onDataHandler = this.onDataHandler.bind(this);
     }
 
     private async applyProfile(profileType: DreoProfileType, speed: number): Promise<void> {
-        if (this.profileCurrent !== profileType) {
-        await DreoProfiles[profileType].apply(this.dreoSerialNumber, this.dreo);
-            this.profileCurrent = profileType;
+        // Only apply profile if there is a diffrence from the current setting
+        if (this.currentProfile !== profileType && this.currentSpeed !== speed) {
+            await DreoProfiles[profileType].apply(this.dreoSerialNumber, this.dreo);
+            await this.dreo.airCirculatorSpeed(this.dreoSerialNumber, speed);
+            this.currentProfile = profileType;
+            this.currentSpeed = speed;
         }
-        await this.dreo.airCirculatorSpeed(this.dreoSerialNumber, speed);
     }
 
     /**
@@ -84,36 +89,38 @@ export default class HeartRateMode {
             const avgHr = this.hrHistory.reduce((acc, value) => { return acc + value }) / this.hrHistory.length;
             if (avgHr > this.hrZone[4]) {
                 // HR is Zone 5
-                this.logger.info('Adjusting DREO profile to Zone 5', avgHr);
-                // Adjust speed based on current state
-                const speed = dreoState?.windlevel === 4 ? 5 : dreoState?.windlevel === 5 ? 6 : 4;
+                // Adjust speed based on current hr and zone (range [5..7])
+                const speed = 5 + getSpeedOffset(this.hrZone[4], this.hrMax, avgHr, 2);
+                this.logger.info('Adjusting DREO profile to Zone 5', avgHr, speed);
                 await this.applyProfile(DreoProfileType.VERTICAL, speed);
             }
             else if (avgHr > this.hrZone[3]) {
                 // HR is Zone 4
-                this.logger.info('Adjusting DREO profile to Zone 4', avgHr);
-                // Adjust speed based on current state
-                const speed = dreoState?.windlevel === 3 ? 4 : 3;
+                // Adjust speed based on current hr and zone (range [3..5])
+                const speed = 3 + getSpeedOffset(this.hrZone[3], this.hrZone[4], avgHr, 2);
+                this.logger.info('Adjusting DREO profile to Zone 4', avgHr, speed);
                 await this.applyProfile(DreoProfileType.VERTICAL, speed);
             }
             else if (avgHr > this.hrZone[2]) {
                 // HR is Zone 3
-                this.logger.info('Adjusting DREO profile to Zone 3', avgHr);
-                // Adjust speed based on current state
-                const speed = dreoState?.windlevel === 2 ? 3 : 2;
+                // Adjust speed based on current hr and zone (range [2..3])
+                const speed = 2 + getSpeedOffset(this.hrZone[2], this.hrZone[3], avgHr, 1);
+                this.logger.info('Adjusting DREO profile to Zone 3', avgHr, speed);
                 await this.applyProfile(DreoProfileType.CENTER_45, speed);
             }
             else if (avgHr > this.hrZone[1]) {
                 // HR is Zone 2
-                this.logger.info('Adjusting DREO profile to Zone 2', avgHr);
-                // Adjust speed based on current state
-                const speed = dreoState?.windlevel === 1 ? 2 : 1;
+                // Adjust speed based on current hr and zone (range [1..2])
+                const speed = 1 + getSpeedOffset(this.hrZone[1], this.hrZone[2], avgHr, 1);
+                this.logger.info('Adjusting DREO profile to Zone 2', avgHr, speed);
                 await this.applyProfile(DreoProfileType.CENTER_45, speed);
             }
             else if (avgHr > this.hrZone[0]) {
                 // HR is Zone 1 
-                this.logger.info('Adjusting DREO profile to Zone 1', avgHr);
-                await this.applyProfile(DreoProfileType.CENTER_0, 1);
+                // Adjust speed based on current hr and zone (range [1..1])
+                const speed = 1 + getSpeedOffset(this.hrZone[0], this.hrZone[1], avgHr, 0);
+                this.logger.info('Adjusting DREO profile to Zone 1', avgHr, speed);
+                await this.applyProfile(DreoProfileType.CENTER_0, speed);
             }
             else {
                 // Turn DREO off
@@ -158,4 +165,21 @@ export default class HeartRateMode {
             await this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, false);
         }, 180000);
     }
+}
+
+/**
+ * Utility function to compute the speed offset to be applied based on the current
+ * heartrate in relation to the corresponding heartrate zone
+ * 
+ * @param hrZoneMin The heartrate zone minimum value
+ * @param hrZoneMax The heartrate zone maximum value
+ * @param heartrate The current heartrate
+ * @param split The number of splits to factor in 
+ * 
+ * @returns The speed offset within the range [0..split]
+ */
+function getSpeedOffset(hrZoneMin: number, hrZoneMax: number, heartrate: number, split: number): number {
+    if (split <= 0) return 0;
+    const fraction = Math.ceil(((hrZoneMax + 1) - hrZoneMin) / (split + 1));
+    return Math.min(Math.floor((heartrate - hrZoneMin) / fraction), split);
 }
