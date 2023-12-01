@@ -20,9 +20,9 @@ import { DreoProfileType, DreoProfiles } from "./DreoProfile";
  * 
  * hrZone[0] (Zone1): CENTER_0             Speed 1
  * hrZone[1] (Zone2): CENTER_45            Speed 1 - Speed 3
- * hrZone[2] (Zone3): CENTER_45            Speed 3 - Speed 5
+ * hrZone[2] (Zone3): VERTICAL             Speed 3 - Speed 5
  * hrZone[3] (Zone4): VERTICAL             Speed 5 - Speed 6
- * hrZone[4] (Zone5): VERTICAL             Speed 7
+ * hrZone[4] (Zone5): CENTER_45            Speed 7
  */
 export default class HeartRateMode {
     private logger: Logger<ILogObj>;
@@ -92,7 +92,7 @@ export default class HeartRateMode {
                 // Adjust speed based on current hr and zone (range [7..7])
                 const speed = 7;
                 this.logger.info('Adjusting DREO profile to Zone 5', avgHr, speed);
-                await this.applyProfile(DreoProfileType.VERTICAL, speed);
+                await this.applyProfile(DreoProfileType.CENTER_45, speed);
             }
             else if (avgHr > this.hrZone[3]) {
                 // HR is Zone 4
@@ -106,7 +106,7 @@ export default class HeartRateMode {
                 // Adjust speed based on current hr and zone (range [3..5])
                 const speed = 3 + getSpeedOffset(this.hrZone[2], this.hrZone[3], avgHr, 2);
                 this.logger.info('Adjusting DREO profile to Zone 3', avgHr, speed);
-                await this.applyProfile(DreoProfileType.CENTER_45, speed);
+                await this.applyProfile(DreoProfileType.VERTICAL, speed);
             }
             else if (avgHr > this.hrZone[1]) {
                 // HR is Zone 2
