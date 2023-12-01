@@ -19,10 +19,10 @@ import { DreoProfileType, DreoProfiles } from "./DreoProfile";
  * and speed as follows:
  * 
  * hrZone[0] (Zone1): CENTER_0             Speed 1
- * hrZone[1] (Zone2): CENTER_45            Speed 1 - Speed 2
- * hrZone[2] (Zone3): CENTER_45            Speed 2 - Speed 3
- * hrZone[3] (Zone4): VERTICAL             Speed 3 - Speed 5
- * hrZone[4] (Zone5): VERTICAL             Speed 5 - Speed 7 
+ * hrZone[1] (Zone2): CENTER_45            Speed 1 - Speed 3
+ * hrZone[2] (Zone3): CENTER_45            Speed 3 - Speed 5
+ * hrZone[3] (Zone4): VERTICAL             Speed 5 - Speed 6
+ * hrZone[4] (Zone5): VERTICAL             Speed 7
  */
 export default class HeartRateMode {
     private logger: Logger<ILogObj>;
@@ -89,36 +89,36 @@ export default class HeartRateMode {
             const avgHr = this.hrHistory.reduce((acc, value) => { return acc + value }) / this.hrHistory.length;
             if (avgHr > this.hrZone[4]) {
                 // HR is Zone 5
-                // Adjust speed based on current hr and zone (range [5..7])
-                const speed = 5 + getSpeedOffset(this.hrZone[4], this.hrMax, avgHr, 2);
+                // Adjust speed based on current hr and zone (range [7..7])
+                const speed = 7;
                 this.logger.info('Adjusting DREO profile to Zone 5', avgHr, speed);
                 await this.applyProfile(DreoProfileType.VERTICAL, speed);
             }
             else if (avgHr > this.hrZone[3]) {
                 // HR is Zone 4
-                // Adjust speed based on current hr and zone (range [3..5])
-                const speed = 3 + getSpeedOffset(this.hrZone[3], this.hrZone[4], avgHr, 2);
+                // Adjust speed based on current hr and zone (range [5..6])
+                const speed = 5 + getSpeedOffset(this.hrZone[3], this.hrZone[4], avgHr, 1);
                 this.logger.info('Adjusting DREO profile to Zone 4', avgHr, speed);
                 await this.applyProfile(DreoProfileType.VERTICAL, speed);
             }
             else if (avgHr > this.hrZone[2]) {
                 // HR is Zone 3
-                // Adjust speed based on current hr and zone (range [2..3])
-                const speed = 2 + getSpeedOffset(this.hrZone[2], this.hrZone[3], avgHr, 1);
+                // Adjust speed based on current hr and zone (range [3..5])
+                const speed = 3 + getSpeedOffset(this.hrZone[2], this.hrZone[3], avgHr, 2);
                 this.logger.info('Adjusting DREO profile to Zone 3', avgHr, speed);
                 await this.applyProfile(DreoProfileType.CENTER_45, speed);
             }
             else if (avgHr > this.hrZone[1]) {
                 // HR is Zone 2
-                // Adjust speed based on current hr and zone (range [1..2])
-                const speed = 1 + getSpeedOffset(this.hrZone[1], this.hrZone[2], avgHr, 1);
+                // Adjust speed based on current hr and zone (range [1..3])
+                const speed = 1 + getSpeedOffset(this.hrZone[1], this.hrZone[2], avgHr, 2);
                 this.logger.info('Adjusting DREO profile to Zone 2', avgHr, speed);
                 await this.applyProfile(DreoProfileType.CENTER_45, speed);
             }
             else if (avgHr > this.hrZone[0]) {
                 // HR is Zone 1 
                 // Adjust speed based on current hr and zone (range [1..1])
-                const speed = 1 + getSpeedOffset(this.hrZone[0], this.hrZone[1], avgHr, 0);
+                const speed = 1;
                 this.logger.info('Adjusting DREO profile to Zone 1', avgHr, speed);
                 await this.applyProfile(DreoProfileType.CENTER_0, speed);
             }
