@@ -3,7 +3,7 @@
  * A profile is a set of oscilating configurations to be
  * applied to the air circulator.
  */
-import { AirCirculatorOscillation, DreoAPI } from "./DreoAPI";
+import { AirCirculatorOscillation, DreoAPI } from './DreoAPI';
 
 // This is the cruise parameters used in this context
 // Horizontal -15 to 15

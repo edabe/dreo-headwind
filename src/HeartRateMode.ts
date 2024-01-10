@@ -1,9 +1,9 @@
-import { ILogObj, Logger } from "tslog";
-import { DreoAPI } from "./DreoAPI";
-import { SensorState } from "incyclist-ant-plus/lib/sensors/base-sensor";
-import { HeartRateSensorState } from "incyclist-ant-plus";
-import { Provider } from "nconf";
-import { DreoProfileType, DreoProfiles } from "./DreoProfile";
+import { ILogObj, Logger } from 'tslog';
+import { DreoAPI } from './DreoAPI';
+import { SensorState } from 'incyclist-ant-plus/lib/sensors/base-sensor';
+import { HeartRateSensorState } from 'incyclist-ant-plus';
+import { Provider } from 'nconf';
+import { DreoProfileType, DreoProfiles } from './DreoProfile';
 
 /**
  * The HeartRateMode will control the Dreo air circulator based on heart 
