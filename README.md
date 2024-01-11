@@ -1,9 +1,11 @@
 # dreo-headwind
-Trying to put together a rudimentary version of a smart fan for workout sessions (primarily cycling) leveraging the smart Dreo fan DR-HAF004S (CF714S) with its vertical and horizontal oscillating capabilities, an old Raspberry Pi and old USB ANT+ stick.
+Trying to put together a rudimentary version of a smart fan for workout sessions (primarily cycling) leveraging the smart [Dreo fan DR-HAF004S (CF714S)](https://a.co/d/0jFntRD) with its vertical and horizontal oscillating capabilities, an old Raspberry Pi and old USB ANT+ stick.
 
 This is a good opportunity to learn a bit of TypeScript and the ANT+ protocol while creating something that fits my needs better; for instance, I would like to have the fan pointing at my bike trainer when cycling indoors, but also have it tilt and point to a rowing machine while always adjusting the air speed to my heart rate.
 
-I hope this will get somewhere.
+I hope this will be helpful to others.
+
+**NOTE:** The API used to control the DREO fan is _not public_, so this integration can stop working without previous notice.
 
 ## Setup
 Still work in progress, but this is how to set it up. Tested both on a macbook laptop (Sonoma) and Raspberry Pi (Debian bookworm)
