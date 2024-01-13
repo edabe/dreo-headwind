@@ -106,7 +106,7 @@ const DREO_API_CONFIG = {
     content_type: 'application/json; charset=UTF-8',
     accept_encoding: 'gzip',
     user_agent: 'okhttp/4.9.1',
-    timeout: 4
+    timeout: 4000
 }
 
 // Follows same request structure as the mobile app
