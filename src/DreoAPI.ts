@@ -23,6 +23,19 @@ export type DreoConfig = {
   password: string
 }
 
+type DreoDeviceAPI = {
+  deviceId: string, 
+  sn: string, 
+  brand: string,
+  model: string,
+  productId: string,
+  productName: string,
+  shared: boolean,
+  deviceName: string,
+  series?: string,
+  seriesName: string
+}
+
 export type DreoDevice = {
   deviceId: string, 
   serialNumber: string, 
@@ -224,7 +237,7 @@ export class DreoAPI {
     .then((response) => {
       const payload = response.data;
       if (payload.data && payload.data.list) {
-        devices = payload.data.list.map((device: any) => {
+        devices = payload.data.list.map((device: DreoDeviceAPI) => {
           return (({ deviceId, sn, brand, model, productId, productName, deviceName, shared, series, seriesName }) => ({ 
             deviceId, 
             serialNumber: sn, 
@@ -271,7 +284,7 @@ export class DreoAPI {
     .then((response) => {
       const payload = response.data;
       if (payload.data && payload.data.productId) {
-        state = (({ sn, productId, region, mixed }) => ({ 
+        state = (({ sn, productId, /*region,*/ mixed }) => ({ 
             childlockon: mixed.childlockon.state,
             connected: mixed.connected.state,
             cruiseconf: mixed.cruiseconf.state,
