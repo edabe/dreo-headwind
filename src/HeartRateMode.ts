@@ -30,17 +30,21 @@ export default class HeartRateMode {
     private dreoSerialNumber: string;
     private hrZone: number[];
     private hrMax: number;
-    private hrHistory: number[];
+    private hrHistory: number[]; 
     private currentProfile: DreoProfileType;
     private currentSpeed: number;
     private timeoutId: NodeJS.Timeout;
     private index: number = 0;
     private isBusy: boolean = false;
+    private beatCount: number = 0;
     constructor(logger: Logger<ILogObj>, nconf: Provider) {
         this.logger = logger;
 
         const hrconfig = nconf.get('mode.heartrate');
-        this.hrHistory = new Array(hrconfig?.sampleSize | 30);
+        // NOTE: hrHistory is based on the ANT+ HR "BeatCount" so the
+        //       array lenth will define how fast the fan will respond
+        //       to heart changes.
+        this.hrHistory = new Array(hrconfig?.sampleSize | (256/8));
 
         const dreoconfig = nconf.get('dreo.config');
         this.dreo = new DreoAPI({ 
@@ -143,25 +147,32 @@ export default class HeartRateMode {
     }
  
     public onDataHandler(data: SensorState): void {
+        // Optimization: Handle data based on the HR "BeatCount" property and not just on
+        // every callback.
         const heartRate = (data as HeartRateSensorState).ComputedHeartRate;
-        if (!isNaN(heartRate)) {
+        const beatCount = (data as HeartRateSensorState).BeatCount;
+        if (!isNaN(heartRate) && (beatCount !== this.beatCount)) {
+            this.beatCount = beatCount;
             this.hrHistory[this.index++] = heartRate;
+            this.logger.debug(`Heart rate (${heartRate} / ${(data as HeartRateSensorState).BeatCount}). Index: ${this.index}; history: `, this.hrHistory.toString());
             if (this.index === this.hrHistory.length) {
                 // Heartrate sample gathered; adjust Dreo profile
                 // This should NOT wait for the adjustDreoProfile function
-                this.adjustDreoProfile();
+                // (the handler has to execute fast)
+                /* await */ this.adjustDreoProfile();
                 this.index = 0;
             }
         }
     }
 
-    public onDetectedHandler(): void {
+    public onDetectedHandler(deviceId: number): void {
+        this.logger.debug('Device detected (HR): ', deviceId);
         // Detect sensor inactivity (wait for 180,000 ms - 3 minutes)
         clearTimeout(this.timeoutId);
         this.timeoutId = setTimeout(async () => {
             // Timeout without handling 'detected' callback.
             // Deactivate the HeartRateMode.
-            this.logger.info('No sensor activity - turning DREO off');
+            this.logger.info(`No sensor activity (HR: ${deviceId}) - turning DREO off`);
             await this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, false);
         }, 180000);
     }
