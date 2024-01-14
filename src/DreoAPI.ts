@@ -1,8 +1,19 @@
 import axios from 'axios';
+import axiosRetry from 'axios-retry';
 import MD5 from 'crypto-js/md5';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import WebSocket from 'ws';
 import { Logger, ILogObj } from 'tslog';
+
+// Configure retry capabilities
+axiosRetry(axios, {
+    retries: 3,
+    retryDelay: () => 100,
+    shouldResetTimeout: true,
+    retryCondition: (error) => {
+        return axiosRetry.isNetworkOrIdempotentRequestError(error) || error.code === "ECONNABORTED";
+    },
+});
 
 type DreoAuth = {
   // Data object returned from the Authenticate call
@@ -88,6 +99,16 @@ export type DreoCommands = {
 // Typescript sleep
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// API details
+const DREO_API_CONFIG = {
+    ua: 'dreo/2.5.12 (sdk_gphone64_arm64;android 13;Scale/2.625)',
+    lang: 'en',
+    content_type: 'application/json; charset=UTF-8',
+    accept_encoding: 'gzip',
+    user_agent: 'okhttp/4.9.1',
+    timeout: 4000
+}
+
 // Follows same request structure as the mobile app
 export class DreoAPI {
   private config: DreoConfig;
@@ -144,12 +165,13 @@ export class DreoAPI {
         'timestamp': Date.now(),
       },
       headers: {
-        'ua': 'dreo/2.5.12 (sdk_gphone64_arm64;android 13;Scale/2.625)',
-        'lang': 'en',
-        'content-type': 'application/json; charset=UTF-8',
-        'accept-encoding': 'gzip',
-        'user-agent': 'okhttp/4.9.1',
+        'ua': DREO_API_CONFIG.ua,
+        'lang': DREO_API_CONFIG.lang,
+        'content-type': DREO_API_CONFIG.content_type,
+        'accept-encoding': DREO_API_CONFIG.accept_encoding,
+        'user-agent': DREO_API_CONFIG.user_agent,
       },
+      timeout: DREO_API_CONFIG.timeout,
     })
     .then((response) => {
       const payload = response.data;
@@ -227,11 +249,12 @@ export class DreoAPI {
       },
       headers: {
         'authorization': `Bearer ${this.auth?.access_token}`,
-        'ua': 'dreo/2.5.12 (sdk_gphone64_arm64;android 13;Scale/2.625)',
-        'lang': 'en',
-        'accept-encoding': 'gzip',
-        'user-agent': 'okhttp/4.9.1',
+        'ua': DREO_API_CONFIG.ua,
+        'lang': DREO_API_CONFIG.lang,
+        'accept-encoding': DREO_API_CONFIG.accept_encoding,
+        'user-agent': DREO_API_CONFIG.user_agent,
       },
+      timeout: DREO_API_CONFIG.timeout,
     })
     // Catch and log errors
     .then((response) => {
@@ -275,11 +298,12 @@ export class DreoAPI {
       },
       headers: {
         'authorization': 'Bearer ' + this.auth?.access_token,
-        'ua': 'dreo/2.5.12 (sdk_gphone64_arm64;android 13;Scale/2.625)',
-        'lang': 'en',
-        'accept-encoding': 'gzip',
-        'user-agent': 'okhttp/4.9.1',
+        'ua': DREO_API_CONFIG.ua,
+        'lang': DREO_API_CONFIG.lang,
+        'accept-encoding': DREO_API_CONFIG.accept_encoding,
+        'user-agent': DREO_API_CONFIG.user_agent,
       },
+      timeout: DREO_API_CONFIG.timeout,
     })
     .then((response) => {
       const payload = response.data;

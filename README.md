@@ -48,7 +48,7 @@ Still work in progress, but this is how to set it up. Tested both on a macbook l
 The application relies on a config file loaded by `nconf`:
 - Create a `config` folder in the project directory
     ```
-    mkdir ./confi
+    mkdir ./config
     ```
 - Create a `config.json` file based on the template below:
     ```
@@ -79,41 +79,57 @@ The application relies on a config file loaded by `nconf`:
 The app will scan for your heart rate monitor; once it finds it, it will start gathering data to control the Dreo fan. The mobile app and/or fan controls will override the controls sent from this app, but only temporarily - by default, this app is sampling and adjusting the fan settings every 30 seconds.
 
 #### Running at startup (Raspberry pi)
-- Create an autostart of the `dist/index.js` application with the contents of the [init-script-template](https://github.com/fhd/init-script-template/blob/master/template)
-  ```
-  eabe@rpi:~ $ sudo vi /etc/init.d/dreo-headwind
-  ```
-  - Note that the directory, command and user should be configured as such:
-    ```
-    dir="/home/eabe/antplus/dreo-headwind"
-    cmd="npm run start"
-    user="eabe"
-    ```
-- Make the script executable
-  ```
-  eabe@rpi:~ $ sudo chmod 755 /etc/init.d/dreo-headwind 
-  ```
-- Activate the autostart
-  ```
-  eabe@rpi:~ $ sudo update-rc.d dreo-headwind defaults
-  ```
-- Reboot the Raspberry pi to ensure the autostart worked
-  ```
-  eabe@rpi:~ $ ps -ef |grep dreo-headwind
-  eabe        2126    2125 99 21:29 pts/3    00:00:12 node /home/eabe/antplus/dreo-headwind/node_modules/.bin/ts-node ./src/index.ts
-  eabe        2134    1185  0 21:29 pts/0    00:00:00 grep --color=auto dreo-headwind
-  ```
-  Or check the service
-  ```
-  eabe@rpi:~ $ sudo /etc/init.d/dreo-headwind status
-  Running
-  ```
+- Create a _systemd_ service file: 
+```
+eabe@rpi:~ $ sudo vi /etc/systemd/system/dreo-headwind.service
+```
+
+File contents:
+```
+[Unit]
+Description=Dreo Headwind smart fitness fan
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+User=eabe
+WorkingDirectory=/home/eabe/antplus/dreo-headwind
+ExecStart=npm run start
+
+[Install]
+WantedBy=multi-user.target
+```
+
+- Configure the new service to start on boot: 
+```
+eabe@rpi:~ $ sudo systemctl enable dreo-headwind
+```
+
+- Start the service:
+```
+eabe@rpi:~ $ sudo systemctl start dreo-headwind
+```
+
+- Check that the service is running:
+```
+eabe@rpi:~ $ ps -ef |grep dreo
+eabe        1131    1126 18 14:29 ?        00:00:18 node /home/eabe/antplus/dreo-headwind/node_modules/.bin/ts-node ./src/index.ts
+eabe        1884    1163  0 14:30 pts/0    00:00:00 grep --color=auto dreo
+```
+
+- Logs are available via [_journalctl_](https://www.loggly.com/ultimate-guide/using-journalctl/):
+```
+eabe@rpi:~ $ sudo journalctl -u dreo-headwind.service -f
+```
 
 You can now start, stop and restart the app manually as well
 ```
-sudo /etc/init.d/dreo-headwind start
-sudo /etc/init.d/dreo-headwind stop
-sudo /etc/init.d/dreo-headwind restart
+sudo systemctl start dreo-headwind
+sudo systemctl stop dreo-headwind
+sudo systemctl restart dreo-headwind
 ```
 
 ## Thought process
