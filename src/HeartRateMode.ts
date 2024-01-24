@@ -41,7 +41,7 @@ export default class HeartRateMode {
     private hrZone: number[][];
     private hrHistory: number[]; 
     private currentProfile: DreoProfileType;
-    private currentSpeed: number;
+    private currentSpeed: number = 0;
     private timeoutId: NodeJS.Timeout;
     private index: number = 0;
     private isBusy: boolean = false;
@@ -75,7 +75,7 @@ export default class HeartRateMode {
 
     private async applyProfile(profileType: DreoProfileType, speed: number): Promise<void> {
         // Only apply profile if there is a diffrence from the current setting
-        if (this.currentProfile !== profileType && this.currentSpeed !== speed) {
+        if (this.currentProfile !== profileType || this.currentSpeed !== speed) {
             await DreoProfiles[profileType].apply(this.dreoSerialNumber, this.dreo);
             await this.dreo.airCirculatorSpeed(this.dreoSerialNumber, speed);
             this.currentProfile = profileType;
