@@ -5,7 +5,10 @@ import { SensorState } from 'incyclist-ant-plus/lib/sensors/base-sensor';
 import HeartRateMode from './HeartRateMode';
 
 // Initialize logger
-const logger = new Logger<ILogObj>({ name: 'dreo-headwind-logger' });
+const logger = new Logger<ILogObj>({ 
+    name: 'dreo-headwind-logger',
+    minLevel: 3
+});
 
 // Load configuration file
 nconf.file({ file: `${process.cwd()}/config/config.json` }).argv().env();
@@ -74,10 +77,10 @@ async function setupSensors(channel: Channel): Promise<void> {
 }
 
 // Handle the sensor messages
-function onDetected(profile: string): void {
+function onDetected(profile: string, deviceId: number): void {
     switch(profile) {
         case 'HR':
-            heartRateMode?.onDetectedHandler();
+            heartRateMode?.onDetectedHandler(deviceId);
             break;
     }
 }
