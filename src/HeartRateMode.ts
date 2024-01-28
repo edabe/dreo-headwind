@@ -98,7 +98,7 @@ export default class HeartRateMode {
                     // HR is Zone 1 
                     // Adjust speed based on current hr and zone (range [0..1])
                     const speed = 0 + getSpeedOffset(this.hrZone[0][0], this.hrZone[0][1], avgHr, 1);
-                    this.logger.info('Adjusting DREO profile to Zone 1', avgHr, speed);
+                    this.logger.info('Adjusting DREO profile to Zone 1', avgHr.toFixed(2), speed);
                     if (speed == 0) {
                         await this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, false);
                     } else {
@@ -110,7 +110,7 @@ export default class HeartRateMode {
                     // HR is Zone 2
                     // Adjust speed based on current hr and zone (range [1..3])
                     const speed = 1 + getSpeedOffset(this.hrZone[1][0], this.hrZone[1][1], avgHr, 2);
-                    this.logger.info('Adjusting DREO profile to Zone 2', avgHr, speed);
+                    this.logger.info('Adjusting DREO profile to Zone 2', avgHr.toFixed(2), speed);
                     await this.applyProfile(DreoProfileType.CENTER_45, speed);
                     break;
                 }
@@ -118,7 +118,7 @@ export default class HeartRateMode {
                     // HR is Zone 3
                     // Adjust speed based on current hr and zone (range [3..5])
                     const speed = 3 + getSpeedOffset(this.hrZone[2][0], this.hrZone[2][1], avgHr, 2);
-                    this.logger.info('Adjusting DREO profile to Zone 3', avgHr, speed);
+                    this.logger.info('Adjusting DREO profile to Zone 3', avgHr.toFixed(2), speed);
                     await this.applyProfile(DreoProfileType.VERTICAL, speed);
                     break;
                 }
@@ -126,7 +126,7 @@ export default class HeartRateMode {
                     // HR is Zone 4
                     // Adjust speed based on current hr and zone (range [5..6])
                     const speed = 5 + getSpeedOffset(this.hrZone[3][0], this.hrZone[3][1], avgHr, 1);
-                    this.logger.info('Adjusting DREO profile to Zone 4', avgHr, speed);
+                    this.logger.info('Adjusting DREO profile to Zone 4', avgHr.toFixed(2), speed);
                     await this.applyProfile(DreoProfileType.VERTICAL, speed);
                     break;
                 }
@@ -134,13 +134,13 @@ export default class HeartRateMode {
                     // HR is Zone 5
                     // Adjust speed based on current hr and zone (range [7..7])
                     const speed = 7;
-                    this.logger.info('Adjusting DREO profile to Zone 5', avgHr, speed);
+                    this.logger.info('Adjusting DREO profile to Zone 5', avgHr.toFixed(2), speed);
                     await this.applyProfile(DreoProfileType.CENTER_45, speed);
                     break;
                 }
                 default: {
                     // Turn DREO off
-                    this.logger.info('Adjusting DREO profile to Zone 0', avgHr, dreoState?.poweron);
+                    this.logger.info('Adjusting DREO profile to Zone 0', avgHr.toFixed(2), dreoState?.poweron);
                     if (dreoState?.poweron) {
                         await this.dreo.airCirculatorSpeed(this.dreoSerialNumber, 1);
                         await this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, false);
