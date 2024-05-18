@@ -1,7 +1,8 @@
 {
     "env": {
         "browser": true,
-        "es2021": true
+        "es2021": true,
+        "node": true
     },
     "extends": [
         "eslint:recommended",
@@ -15,7 +16,7 @@
     "plugins": [
         "@typescript-eslint"
     ],
-    "ignorePatterns": ["dist", "logs"],
+    "ignorePatterns": ["dist", "tests", "logs"],
     "rules": {
         "@typescript-eslint/no-explicit-any": "warn",
         "@typescript-eslint/no-unused-vars": "warn"
