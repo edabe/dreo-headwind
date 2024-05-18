@@ -66,7 +66,7 @@ export default class HeartRateMode {
         // this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, true);
 
         const heartrate = nconf.get('user.heartrate');
-        this.hrZone = getHeartRateZones(heartrate.rest, heartrate.max, heartrate.zones);
+        this.hrZone = this.getHeartRateZones(heartrate.rest, heartrate.max, heartrate.zones);
         logger.info(`Heart rate details: Rest: ${heartrate.rest}, Max: ${heartrate.max}\n${JSON.stringify(this.hrZone)}`);
 
         // Bind event handler to this in order to set the right context
@@ -93,11 +93,11 @@ export default class HeartRateMode {
             this.isBusy = true;
             const dreoState = await this.dreo.getState(this.dreoSerialNumber);
             const avgHr = this.hrHistory.reduce((acc, value) => { return acc + value }) / this.hrHistory.length;
-            switch(getHeartRateZone(avgHr, this.hrZone)) {
+            switch(this.getHeartRateZone(avgHr)) {
                 case 1: {
                     // HR is Zone 1 
                     // Adjust speed based on current hr and zone (range [0..1])
-                    const speed = 0 + getSpeedOffset(this.hrZone[0][0], this.hrZone[0][1], avgHr, 1);
+                    const speed = 0 + this.getSpeedOffset(this.hrZone[0][0], this.hrZone[0][1], avgHr, 1);
                     this.logger.info('Adjusting DREO profile to Zone 1', avgHr.toFixed(2), speed);
                     if (speed == 0) {
                         await this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, false);
@@ -109,7 +109,7 @@ export default class HeartRateMode {
                 case 2: {
                     // HR is Zone 2
                     // Adjust speed based on current hr and zone (range [1..3])
-                    const speed = 1 + getSpeedOffset(this.hrZone[1][0], this.hrZone[1][1], avgHr, 2);
+                    const speed = 1 + this.getSpeedOffset(this.hrZone[1][0], this.hrZone[1][1], avgHr, 2);
                     this.logger.info('Adjusting DREO profile to Zone 2', avgHr.toFixed(2), speed);
                     await this.applyProfile(DreoProfileType.CENTER_45, speed);
                     break;
@@ -117,7 +117,7 @@ export default class HeartRateMode {
                 case 3: {
                     // HR is Zone 3
                     // Adjust speed based on current hr and zone (range [3..5])
-                    const speed = 3 + getSpeedOffset(this.hrZone[2][0], this.hrZone[2][1], avgHr, 2);
+                    const speed = 3 + this.getSpeedOffset(this.hrZone[2][0], this.hrZone[2][1], avgHr, 2);
                     this.logger.info('Adjusting DREO profile to Zone 3', avgHr.toFixed(2), speed);
                     await this.applyProfile(DreoProfileType.VERTICAL, speed);
                     break;
@@ -125,7 +125,7 @@ export default class HeartRateMode {
                 case 4: {
                     // HR is Zone 4
                     // Adjust speed based on current hr and zone (range [5..6])
-                    const speed = 5 + getSpeedOffset(this.hrZone[3][0], this.hrZone[3][1], avgHr, 1);
+                    const speed = 5 + this.getSpeedOffset(this.hrZone[3][0], this.hrZone[3][1], avgHr, 1);
                     this.logger.info('Adjusting DREO profile to Zone 4', avgHr.toFixed(2), speed);
                     await this.applyProfile(DreoProfileType.VERTICAL, speed);
                     break;
@@ -150,6 +150,70 @@ export default class HeartRateMode {
             this.isBusy = false;
         }
         else this.logger.info('Skipping DREO profile adjustment: busy');
+    }
+    
+    /**
+     * Utility function to compute the speed offset to be applied based on the current
+     * heartrate in relation to the corresponding heartrate zone.
+     * 
+     * @param hrZoneMin The heartrate zone minimum value
+     * @param hrZoneMax The heartrate zone maximum value
+     * @param heartrate The current heartrate
+     * @param split The number of splits to factor in 
+     * 
+     * @returns The speed offset within the range [0..split]
+     */
+    private getSpeedOffset(hrZoneMin: number, hrZoneMax: number, heartrate: number, split: number): number {
+        if (split < 1) return 0;
+        const range = hrZoneMax - hrZoneMin;
+        if (split > (range)) split = range;
+
+        const fraction = Math.ceil(((hrZoneMax) - hrZoneMin) / (split + 1));
+        return Math.min(Math.floor((heartrate - hrZoneMin) / fraction), split);
+    }
+
+    /**
+     * Utility funciton to convert the heart rate zones based on percentage of HRR to
+     * heart rate beats following the Karvonen method
+     * 
+     * @param hrRest Rest heart rate
+     * @param hrMax Max heart rate
+     * @param hrZones Array of heart rate ranges (percentage of rest heart rate)
+     * 
+     * @returns An array of heart rate ranges (beats per minute)
+     */
+    private getHeartRateZones(hrRest: number, hrMax: number, hrZones: number[][]) {
+        const hrReserve = hrMax - hrRest;
+        return [
+            [ hrZones[0][0] / 100 * hrReserve + hrRest, hrZones[0][1] / 100 * hrReserve + hrRest ],
+            [ hrZones[1][0] / 100 * hrReserve + hrRest, hrZones[1][1] / 100 * hrReserve + hrRest ],
+            [ hrZones[2][0] / 100 * hrReserve + hrRest, hrZones[2][1] / 100 * hrReserve + hrRest ],
+            [ hrZones[3][0] / 100 * hrReserve + hrRest, hrZones[3][1] / 100 * hrReserve + hrRest ],
+            [ hrZones[4][0] / 100 * hrReserve + hrRest, hrZones[4][1] / 100 * hrReserve + hrRest ]
+        ];
+    }
+
+    /**
+     * Utility function to return the heart rate zone based on the given
+     * heart rate average, based on the hrZones property
+     * 
+     * @param hrAverage Heart rate average
+     * 
+     * @returns: The heart rate zone, from 0 to hrZones.length
+     */
+    private getHeartRateZone(hrAverage: number) {
+        // Boundaries
+        const hrMax = this.hrZone[this.hrZone.length-1][1];
+        if (hrAverage >= hrMax) return this.hrZone.length;
+        const hrMin = this.hrZone[0][0];
+        if (hrAverage <= hrMin) return 0;
+
+        let zone = 0;
+        while (zone < this.hrZone.length) {
+            if (hrAverage < this.hrZone[zone][1]) break;
+            zone++
+        }
+        return zone + 1;
     }
 
     public async cleanup(): Promise<void> {
@@ -189,66 +253,4 @@ export default class HeartRateMode {
             await this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, false);
         }, 180000);
     }
-}
-
-/**
- * Utility function to compute the speed offset to be applied based on the current
- * heartrate in relation to the corresponding heartrate zone
- * 
- * @param hrZoneMin The heartrate zone minimum value
- * @param hrZoneMax The heartrate zone maximum value
- * @param heartrate The current heartrate
- * @param split The number of splits to factor in 
- * 
- * @returns The speed offset within the range [0..split]
- */
-function getSpeedOffset(hrZoneMin: number, hrZoneMax: number, heartrate: number, split: number): number {
-    if (split <= 0) return 0;
-    const fraction = Math.ceil(((hrZoneMax + 1) - hrZoneMin) / (split + 1));
-    return Math.min(Math.floor((heartrate - hrZoneMin) / fraction), split);
-}
-
-/**
- * Utility funciton to convert the heart rate zones based on percentage of HRR to
- * heart rate beats following the Karvonen method
- * 
- * @param hrRest Rest heart rate
- * @param hrMax Max heart rate
- * @param hrZones Array of heart rate ranges (percentage of rest heart rate)
- * 
- * @returns An array of heart rate ranges (beats per minute)
- */
-function getHeartRateZones(hrRest: number, hrMax: number, hrZones: number[][]) {
-    const hrReserve = hrMax - hrRest;
-    return [
-        [ hrZones[0][0] / 100 * hrReserve + hrRest, hrZones[0][1] / 100 * hrReserve + hrRest ],
-        [ hrZones[1][0] / 100 * hrReserve + hrRest, hrZones[1][1] / 100 * hrReserve + hrRest ],
-        [ hrZones[2][0] / 100 * hrReserve + hrRest, hrZones[2][1] / 100 * hrReserve + hrRest ],
-        [ hrZones[3][0] / 100 * hrReserve + hrRest, hrZones[3][1] / 100 * hrReserve + hrRest ],
-        [ hrZones[4][0] / 100 * hrReserve + hrRest, hrZones[4][1] / 100 * hrReserve + hrRest ]
-    ];
-}
-
-/**
- * Utility function to return the heart rate zone based on the given
- * heart rate average, based on the hrZones property
- * 
- * @param hrAverage Heart rate average
- * @param hrZones Array of heart rate zone ranges
- * 
- * @returns: The heart rate zone, from 0 to hrZones.length
- */
-function getHeartRateZone(hrAverage: number, hrZones: number[][]) {
-    // Boundaries
-    const hrMax = hrZones[hrZones.length-1][1];
-    if (hrAverage >= hrMax) return hrZones.length;
-    const hrMin = hrZones[0][0];
-    if (hrAverage <= hrMin) return 0;
-
-    let zone = 0;
-    while (zone < hrZones.length) {
-        if (hrAverage < hrZones[zone][1]) break;
-        zone++
-    }
-    return zone + 1;
 }
