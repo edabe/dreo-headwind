@@ -33,6 +33,9 @@ import { DreoProfileType, DreoProfiles } from './DreoProfile';
  * hrZone[2] (Zone3): VERTICAL             Speed 3 - Speed 5
  * hrZone[3] (Zone4): VERTICAL             Speed 5 - Speed 6
  * hrZone[4] (Zone5): CENTER_45            Speed 7
+ * 
+ * The current temperature will influence the speed via a multiplcating factor,
+ * as described in function adjustSpeed.
  */
 export default class HeartRateMode {
     private logger: Logger<ILogObj>;
@@ -76,10 +79,12 @@ export default class HeartRateMode {
     private async applyProfile(profileType: DreoProfileType, speed: number): Promise<void> {
         // Only apply profile if there is a diffrence from the current setting
         if (this.currentProfile !== profileType || this.currentSpeed !== speed) {
+            // Adjust speed based on temperature
+            const tempSpeed = this.adjustSpeed(speed, await this.dreo.getTemperature(this.dreoSerialNumber) || 0);
             await DreoProfiles[profileType].apply(this.dreoSerialNumber, this.dreo);
-            await this.dreo.airCirculatorSpeed(this.dreoSerialNumber, speed);
+            await this.dreo.airCirculatorSpeed(this.dreoSerialNumber, tempSpeed);
             this.currentProfile = profileType;
-            this.currentSpeed = speed;
+            this.currentSpeed = speed; // Note here, optimization so that 'getTemperature' is only called when applying profile
         }
     }
 
@@ -151,7 +156,27 @@ export default class HeartRateMode {
         }
         else this.logger.info('Skipping DREO profile adjustment: busy');
     }
-    
+
+    /**
+     * Utility function to adjust a given speed based on the current temperature
+     * as follows: Math.min(9, Math.ceil(speed * factor)), where factor is:
+     * 
+     * < 70F     Multiply factor 1.0
+     * 70F ~ 80F Multiply factor 1.5 
+     * > 80F     Multiply factor 2.0
+     *
+     * @param speed The fan speed to be adjusted
+     * @param temperature The current temperature
+     * 
+     * @returns The speed adjusted by temperature
+     */
+    private adjustSpeed(speed: number, temperature: number): number {
+        let factor = 1;
+        if (temperature > 80) factor = 2;
+        else if (temperature > 70) factor = 1.5;
+        return Math.min(9, Math.ceil(speed * factor));
+    }
+
     /**
      * Utility function to compute the speed offset to be applied based on the current
      * heartrate in relation to the corresponding heartrate zone.
