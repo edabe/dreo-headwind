@@ -5,6 +5,11 @@ import ReconnectingWebSocket from 'reconnecting-websocket';
 import WebSocket from 'ws';
 import { Logger, ILogObj } from 'tslog';
 
+/**
+ * DreoAPI is based heavily on https://github.com/zyonse/homebridge-dreo
+ * This file is manually sync'ed from the homebridge-dreo source
+ */
+
 // Configure retry capabilities
 axiosRetry(axios, {
     retries: 3,
@@ -101,7 +106,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // API details
 const DREO_API_CONFIG = {
-    ua: 'dreo/2.5.12 (sdk_gphone64_arm64;android 13;Scale/2.625)',
+    ua: 'dreo/2.8.1 (iPhone; iOS 18.0.0; Scale/3.00)',
     lang: 'en',
     content_type: 'application/json; charset=UTF-8',
     accept_encoding: 'gzip',
