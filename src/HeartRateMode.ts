@@ -9,11 +9,24 @@ import { DreoProfileType, DreoProfiles } from './DreoProfile';
  * The HeartRateMode will control the Dreo air circulator based on heart 
  * rate data received from the ANT sensor.
  * 
- * The ANT sensor will transmit approximately 4 messages per second; this
- * implementation will only process heart rate based on the ANT 'BeatCount'
- * property; an array of configurable size ('mode.heartrate[sampleSize]') 
- * is used to store heart rate data to be averaged and matched to a fan
- * "profile".
+ * The callback function "onDataHandler()" is called every time the HRM sends
+ * a message (approximately 4 messages per second). It relies on the ANT HRM
+ * profile "BeatCount" to distinguish repeating messages from repeating HR
+ * readings.
+ * 
+ * It adopts an asymmetric smoothing approach with variable update rate based
+ * on whether the heart rate is increasing or decreasing.
+ * 
+ * For increasing heart rates, implement quick fan speed updates. For decreasing
+ * heart rates, slow fan response to allow for a cool-down effect.
+ * 
+ * The following configuration parameters are used:
+ * - increaseSmoothFactor: the smooth factor used when an increase in the 
+ *   heart rate is detected
+ * - decreaseSmoothFactor: the smooth factor used when a decrease in the
+ *   heart rate is detected
+ * - updateFrequency: the approximate frequency in which the fan profile is
+ *   updated (in milliseconds)
  * 
  * Heart rate zones are based on the Karvonen Method, which considers the
  * resting heart rate and the maximum heart rate, which are configurable:
@@ -41,22 +54,21 @@ export default class HeartRateMode {
     private logger: Logger<ILogObj>;
     private dreo: DreoAPI;
     private dreoSerialNumber: string;
-    private hrZone: number[][];
-    private hrHistory: number[]; 
-    private currentProfile: DreoProfileType;
-    private currentSpeed: number = 0;
-    private timeoutId: NodeJS.Timeout;
-    private index: number = 0;
-    private isBusy: boolean = false;
-    private beatCount: number = 0;
+    private hrZoneArray: number[][];
+    private hrSmoothed: number;
+    private hrIncreaseSmoothFactor: number;
+    private hrDecreaseSmoothFactor: number;
+    private hrLastBeatCount: number = 0;
+    private hrModeUpdateFrequency: number;
+    private hrModeLastUpdate: number;
+    private hrProfile: DreoProfileType;
+    private handlerTimeoutId: NodeJS.Timeout;
+    private isAdjustDreoProfileBusy: boolean = false;
+    private profileOverrideLastUpdate: number;
+    private profileOverrideFrequency: number;
+    private profileOverrideDuration: number;
     constructor(logger: Logger<ILogObj>, nconf: Provider) {
         this.logger = logger;
-
-        const hrconfig = nconf.get('mode.heartrate');
-        // NOTE: hrHistory is based on the ANT+ HR "BeatCount" so the
-        //       array lenth will define how fast the fan will respond
-        //       to heart changes.
-        this.hrHistory = new Array(hrconfig?.sampleSize | (256/8));
 
         const dreoconfig = nconf.get('dreo.config');
         this.dreo = new DreoAPI({ 
@@ -68,133 +80,176 @@ export default class HeartRateMode {
         this.dreoSerialNumber = dreoconfig.serialNumber;
         // this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, true);
 
+        const hrconfig = nconf.get('mode.heartrate');
+        // Set the smooth factor
+        this.hrIncreaseSmoothFactor = hrconfig?.increaseSmoothFactor || 0.5;
+        this.hrDecreaseSmoothFactor = hrconfig?.decreaseSmoothFactor || 0.1;
+        // Set fan profile update frequency
+        this.hrModeLastUpdate = Date.now();
+        this.hrModeUpdateFrequency = hrconfig?.updateFrequency || 5000;
+        // Set oscillation override frequency and duration
+        this.profileOverrideFrequency = hrconfig?.oscillationFrequency || 180000;
+        this.profileOverrideDuration = hrconfig?.oscillationDuration || 45000;
+        this.profileOverrideLastUpdate = Date.now();
+
         const heartrate = nconf.get('user.heartrate');
-        this.hrZone = this.getHeartRateZones(heartrate.rest, heartrate.max, heartrate.zones);
-        logger.info(`Heart rate details: Rest: ${heartrate.rest}, Max: ${heartrate.max}\n${JSON.stringify(this.hrZone)}`);
+        // Set initial smoothed heart rate to be the resting heart rate
+        this.hrSmoothed = heartrate.rest;
+
+        this.hrZoneArray = this.getHeartRateZones(heartrate.rest, heartrate.max, heartrate.zones);
+        logger.info(`Heart rate details: Rest: ${heartrate.rest}, Max: ${heartrate.max}\n${JSON.stringify(this.hrZoneArray)}`);
 
         // Bind event handler to this in order to set the right context
         this.onDataHandler = this.onDataHandler.bind(this);
     }
 
-    private async applyProfile(profileType: DreoProfileType, speed: number): Promise<void> {
-        // Only apply profile if there is a diffrence from the current setting
-        if (this.currentProfile !== profileType || this.currentSpeed !== speed) {
-            // Adjust speed based on temperature
-            const tempSpeed = this.adjustSpeed(speed, await this.dreo.getTemperature(this.dreoSerialNumber) || 0);
-            await DreoProfiles[profileType].apply(this.dreoSerialNumber, this.dreo);
-            await this.dreo.airCirculatorSpeed(this.dreoSerialNumber, tempSpeed);
-            this.currentProfile = profileType;
-            this.currentSpeed = speed; // Note here, optimization so that 'getTemperature' is only called when applying profile
-        }
-    }
-
     /**
+     * Adjust the fan profile based on the current aggregated data.
+     * 
+     * The following data is considered:
+     * - Heart rate zone: The heart rate zone based on the smoothed heart rate 
+     *   calculated in the ANT HRM callback
+     * - Temperature: The current temperature measured from the DREO sensor
+     * 
+     * The fan will oscillate approximately every 30 seconds to avoid heat
+     * build up.
+     * 
      * Adjusting the fan oscillating pattern and speed can take time.
      * The variable `isBusy` is used as a non-blocking semaphore to only allow 
      * the profile to be adjusted once at a time.
      */
     private async adjustDreoProfile(): Promise<void> {
-        if (!this.isBusy) { // ignore command if other thread is still adjusting a profile
-            this.isBusy = true;
-            const dreoState = await this.dreo.getState(this.dreoSerialNumber);
-            const avgHr = this.hrHistory.reduce((acc, value) => { return acc + value }) / this.hrHistory.length;
-            switch(this.getHeartRateZone(avgHr)) {
-                case 1: {
-                    // HR is Zone 1 
-                    // Adjust speed based on current hr and zone (range [0..1])
-                    const speed = 0 + this.getSpeedOffset(this.hrZone[0][0], this.hrZone[0][1], avgHr, 1);
-                    this.logger.info('Adjusting DREO profile to Zone 1', avgHr.toFixed(2), speed);
-                    if (speed == 0) {
-                        await this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, false);
-                    } else {
-                        await this.applyProfile(DreoProfileType.CENTER_0, speed);
-                    }
-                    break;
-                }
-                case 2: {
-                    // HR is Zone 2
-                    // Adjust speed based on current hr and zone (range [1..3])
-                    const speed = 1 + this.getSpeedOffset(this.hrZone[1][0], this.hrZone[1][1], avgHr, 2);
-                    this.logger.info('Adjusting DREO profile to Zone 2', avgHr.toFixed(2), speed);
-                    await this.applyProfile(DreoProfileType.CENTER_45, speed);
-                    break;
-                }
-                case 3: {
-                    // HR is Zone 3
-                    // Adjust speed based on current hr and zone (range [3..5])
-                    const speed = 3 + this.getSpeedOffset(this.hrZone[2][0], this.hrZone[2][1], avgHr, 2);
-                    this.logger.info('Adjusting DREO profile to Zone 3', avgHr.toFixed(2), speed);
-                    await this.applyProfile(DreoProfileType.VERTICAL, speed);
-                    break;
-                }
-                case 4: {
-                    // HR is Zone 4
-                    // Adjust speed based on current hr and zone (range [5..6])
-                    const speed = 5 + this.getSpeedOffset(this.hrZone[3][0], this.hrZone[3][1], avgHr, 1);
-                    this.logger.info('Adjusting DREO profile to Zone 4', avgHr.toFixed(2), speed);
-                    await this.applyProfile(DreoProfileType.VERTICAL, speed);
-                    break;
-                }
-                case 5: {
-                    // HR is Zone 5
-                    // Adjust speed based on current hr and zone (range [7..7])
-                    const speed = 7;
-                    this.logger.info('Adjusting DREO profile to Zone 5', avgHr.toFixed(2), speed);
-                    await this.applyProfile(DreoProfileType.CENTER_45, speed);
-                    break;
-                }
-                default: {
-                    // Turn DREO off
-                    this.logger.info('Adjusting DREO profile to Zone 0', avgHr.toFixed(2), dreoState?.poweron);
-                    if (dreoState?.poweron) {
-                        await this.dreo.airCirculatorSpeed(this.dreoSerialNumber, 1);
-                        await this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, false);
-                    }
-                }
-            }
-            this.isBusy = false;
+        // Ignore call if busy
+        if (this.isAdjustDreoProfileBusy) {
+            this.logger.info('Skipping DREO profile adjustment: busy');
+            return;
         }
-        else this.logger.info('Skipping DREO profile adjustment: busy');
+        // Sets function to 'busy'
+        this.isAdjustDreoProfileBusy = true;
+
+        // Step 1: Gather data
+        const dreoState = await this.dreo.getState(this.dreoSerialNumber);
+        const temperature = dreoState?.temperature as number;
+        const currentSpeed = dreoState?.windlevel as number;
+
+        // Step 2: Calculate fan speed based on current heart rate and heart rate zone
+        let fanSpeed = this.getFanSpeed();
+
+        // Step 3: Adjust fan speed according to temperature
+        fanSpeed = this.adjustSpeedForTemperature(fanSpeed, temperature);
+
+        // Step 4: Adjust fan profile, including override
+        let fanProfile: DreoProfileType;
+
+        // Step 4.1: Detect provide override
+        const now = Date.now();
+        if ((now - this.profileOverrideLastUpdate) >= this.profileOverrideFrequency) {            
+            fanProfile = DreoProfileType.VERTICAL;
+            if ((now - this.profileOverrideLastUpdate) >= (this.profileOverrideFrequency + this.profileOverrideDuration)) {
+                // Reset override
+                this.profileOverrideLastUpdate = now;
+                this.logger.debug('Profile override ended');
+            } else {
+                this.logger.debug('Profile override in effect');
+            }
+        } else switch(fanSpeed) {
+            case 1:
+                // Fan profile set to "feet"
+                fanProfile = DreoProfileType.CENTER_0;
+                break;
+            case 2:
+            case 3:
+                // Fan profile set to "torso"
+                fanProfile = DreoProfileType.CENTER_30;
+                break;
+            case 4:
+            case 5:
+            case 6:
+            case 7:
+                // Fan profile set to "face"
+                fanProfile = DreoProfileType.CENTER_45;
+                break;
+            default:
+                // Fan profile set to oscillate
+                fanProfile = DreoProfileType.VERTICAL;
+        }
+
+        // Step 6: Update fan profile
+        // Only apply profile if there is a diffrence from the current setting
+        this.logger.debug(`Adjust profile ${this.hrProfile} / ${fanProfile} / ${currentSpeed} / ${fanSpeed} / ${this.hrSmoothed}`);
+        if (this.hrProfile !== fanProfile || currentSpeed !== fanSpeed) {
+            this.hrProfile = fanProfile;
+            await DreoProfiles[fanProfile].apply(this.dreoSerialNumber, this.dreo); // 'apply' will turn the fan on if needed
+            await this.dreo.airCirculatorSpeed(this.dreoSerialNumber, fanSpeed);
+        }
+        this.isAdjustDreoProfileBusy = false;
+    }
+
+    /**
+     * Utility function to get the fan speed based on the current heart rate
+     * and the zone thresholds.
+     * 
+     * It uses linear interpolation within each heart rate zone to calculate
+     * the fan speed based on where the current heart rate lies within the min
+     * and max of the zone.
+     * 
+     * As a result, the speed ends up mapped HR zones as follows:
+     * - Zone 1: 1-2
+     * - Zone 2: 2-3
+     * - Zone 3: 3-4
+     * - Zone 4: 4-5
+     * - Zone 5: 5-7
+     */
+    private getFanSpeed(): number {
+        // Define the fan minimum and max speed
+        const minFanSpeed = 1;
+        const maxFanSpeed = 7;
+        const fanSpeedRangePerZone = 1.2; // (maxFanSpeed - minFanSpeed) / this.hrZoneArray.length;
+
+        // Get the current HR zone
+        const zoneIndex = this.getHeartRateZone() - 1; // index is zone -1 (zero-based)
+
+        // Get the min and max for the current HR zone
+        const [zoneMin, zoneMax] = this.hrZoneArray[zoneIndex];
+
+        // Get the fan speed min and max for the current zone
+        const baseSpeed = minFanSpeed + (zoneIndex * fanSpeedRangePerZone);
+        const zoneMinSpeed = Math.floor(baseSpeed);
+        const zoneMaxSpeed = Math.floor(baseSpeed+fanSpeedRangePerZone);
+
+        // Calculate the normalized position of the current heart rate within the zone
+        const normalized = (this.hrSmoothed - zoneMin) / (zoneMax - zoneMin);
+
+        // Calculate the fan speed within the current fan speed range (zoneMaxSpeed and zoneMinSpeed)
+        const fanSpeed = Math.round(zoneMinSpeed + (normalized * (zoneMaxSpeed - zoneMinSpeed)));
+
+        // Ensure fan speed is within limits (this is only really needed with HR is below or above zone limits)
+        return Math.min(Math.max(fanSpeed, minFanSpeed), maxFanSpeed);
     }
 
     /**
      * Utility function to adjust a given speed based on the current temperature
-     * as follows: Math.min(9, Math.ceil(speed * factor)), where factor is:
+     * as follows: 
      * 
-     * < 70F     Multiply factor 1.0
-     * 70F ~ 80F Multiply factor 1.5 
-     * > 80F     Multiply factor 2.0
+     * Temp > 85F:       Increase speed by 2 (cap at 9)
+     * 75F < Temp < 85F: Increase speed by 1 (cap at 9)
+     * 65F < Temp < 75F: Increase speed by 0
+     * Temp < 65F:       Decrease speed by 1 (cap at 1)
      *
      * @param speed The fan speed to be adjusted
      * @param temperature The current temperature
      * 
      * @returns The speed adjusted by temperature
      */
-    private adjustSpeed(speed: number, temperature: number): number {
-        let factor = 1;
-        if (temperature > 80) factor = 2;
-        else if (temperature > 70) factor = 1.5;
-        return Math.min(9, Math.ceil(speed * factor));
-    }
-
-    /**
-     * Utility function to compute the speed offset to be applied based on the current
-     * heartrate in relation to the corresponding heartrate zone.
-     * 
-     * @param hrZoneMin The heartrate zone minimum value
-     * @param hrZoneMax The heartrate zone maximum value
-     * @param heartrate The current heartrate
-     * @param split The number of splits to factor in 
-     * 
-     * @returns The speed offset within the range [0..split]
-     */
-    private getSpeedOffset(hrZoneMin: number, hrZoneMax: number, heartrate: number, split: number): number {
-        if (split < 1) return 0;
-        const range = hrZoneMax - hrZoneMin;
-        if (split > (range)) split = range;
-
-        const fraction = Math.ceil(((hrZoneMax) - hrZoneMin) / (split + 1));
-        return Math.min(Math.floor((heartrate - hrZoneMin) / fraction), split);
+    private adjustSpeedForTemperature(speed: number, temperature: number): number {
+        if (temperature > 85) {
+            return Math.min(speed + 2, 9);
+        } else if (temperature > 75) {
+            return Math.min(speed + 1, 9);
+        } else if (temperature < 65) {
+            return Math.max(speed - 1, 1);
+        }
+        return speed;
     }
 
     /**
@@ -207,71 +262,96 @@ export default class HeartRateMode {
      * 
      * @returns An array of heart rate ranges (beats per minute)
      */
-    private getHeartRateZones(hrRest: number, hrMax: number, hrZones: number[][]) {
+    private getHeartRateZones(hrRest: number, hrMax: number, hrZones: number[][]): number [][] {
         const hrReserve = hrMax - hrRest;
         return [
-            [ hrZones[0][0] / 100 * hrReserve + hrRest, hrZones[0][1] / 100 * hrReserve + hrRest ],
-            [ hrZones[1][0] / 100 * hrReserve + hrRest, hrZones[1][1] / 100 * hrReserve + hrRest ],
-            [ hrZones[2][0] / 100 * hrReserve + hrRest, hrZones[2][1] / 100 * hrReserve + hrRest ],
-            [ hrZones[3][0] / 100 * hrReserve + hrRest, hrZones[3][1] / 100 * hrReserve + hrRest ],
-            [ hrZones[4][0] / 100 * hrReserve + hrRest, hrZones[4][1] / 100 * hrReserve + hrRest ]
+            [ Math.round(hrZones[0][0] / 100 * hrReserve + hrRest), Math.round(hrZones[0][1] / 100 * hrReserve + hrRest) ],
+            [ Math.round(hrZones[1][0] / 100 * hrReserve + hrRest), Math.round(hrZones[1][1] / 100 * hrReserve + hrRest) ],
+            [ Math.round(hrZones[2][0] / 100 * hrReserve + hrRest), Math.round(hrZones[2][1] / 100 * hrReserve + hrRest) ],
+            [ Math.round(hrZones[3][0] / 100 * hrReserve + hrRest), Math.round(hrZones[3][1] / 100 * hrReserve + hrRest) ],
+            [ Math.round(hrZones[4][0] / 100 * hrReserve + hrRest), Math.round(hrZones[4][1] / 100 * hrReserve + hrRest) ]
         ];
     }
 
     /**
-     * Utility function to return the heart rate zone based on the given
-     * heart rate average, based on the hrZones property
+     * Utility function that calculates the heart rate zone based on
+     * the current heart rate.
      * 
-     * @param hrAverage Heart rate average
-     * 
-     * @returns: The heart rate zone, from 0 to hrZones.length
+     * It relies on the properties hrZoneArray and hrSmoothed 
+     *  
+     * @returns: The heart rate zone, from 1 to hrZoneArray.length
      */
-    private getHeartRateZone(hrAverage: number) {
-        // Boundaries
-        const hrMax = this.hrZone[this.hrZone.length-1][1];
-        if (hrAverage >= hrMax) return this.hrZone.length;
-        const hrMin = this.hrZone[0][0];
-        if (hrAverage <= hrMin) return 0;
-
-        let zone = 0;
-        while (zone < this.hrZone.length) {
-            if (hrAverage < this.hrZone[zone][1]) break;
-            zone++
+    private getHeartRateZone(): number {
+        let zoneIndex = -1;
+        for (let i = 0; i < this.hrZoneArray.length; i++) {
+            const [zoneMin, zoneMax] = this.hrZoneArray[i];
+            if (this.hrSmoothed >= zoneMin && this.hrSmoothed <= zoneMax) {
+                zoneIndex = i + 1;
+                break;
+            }
         }
-        return zone + 1;
+        if (zoneIndex === -1)
+            zoneIndex = this.hrSmoothed < this.hrZoneArray[0][0] ? 1 : this.hrZoneArray.length;
+
+        return zoneIndex;
     }
 
     public async cleanup(): Promise<void> {
         // Clean up timers
-        clearTimeout(this.timeoutId);
+        clearTimeout(this.handlerTimeoutId);
         await this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, false);
         this.dreo.disconnect();
     }
  
+    /**
+     * The ANT+ HRM profile will send approximately 4 messages per second, which is a much
+     * higher frequency than needed.
+     * 
+     * This callback will implement asymmetric smoothing with variable update rate based
+     * on exponential moving average (EMA) to respond quickly to increases in heart rate
+     * and slowly to decreases in heart rate to allow for a cool-down effect.
+     * 
+     * Rely on the HRM `BeatCount` property to avoid processing repeated messages.
+     * 
+     * @param data The ANT+ HRM data content
+     */
     public onDataHandler(data: SensorState): void {
         // Optimization: Handle data based on the HR "BeatCount" property and not just on
         // every callback.
         const heartRate = (data as HeartRateSensorState).ComputedHeartRate;
         const beatCount = (data as HeartRateSensorState).BeatCount;
-        if (!isNaN(heartRate) && (beatCount !== this.beatCount)) {
-            this.beatCount = beatCount;
-            this.hrHistory[this.index++] = heartRate;
-            this.logger.debug(`Heart rate (${heartRate} / ${(data as HeartRateSensorState).BeatCount}). Index: ${this.index}; history: `, this.hrHistory.toString());
-            if (this.index === this.hrHistory.length) {
-                // Heartrate sample gathered; adjust Dreo profile
-                // This should NOT wait for the adjustDreoProfile function
-                // (the handler has to execute fast)
-                /* await */ this.adjustDreoProfile();
-                this.index = 0;
-            }
+
+        // Check if HR message is repeated or corrupted
+        if (isNaN(heartRate) || beatCount === this.hrLastBeatCount) {
+            return; // Ignore repeated / corrupted callback
+        }
+
+        // Update the lastBeatCount with the current value
+        this.hrLastBeatCount = beatCount;
+
+        // Apply asymmetric smoothing
+        if (heartRate > this.hrSmoothed) {
+            // Quick response to increase in heart rate
+            this.hrSmoothed = Math.round(this.hrIncreaseSmoothFactor * heartRate + (1 - this.hrIncreaseSmoothFactor) * this.hrSmoothed);
+        } else {
+            // Slow response to decrease in heart rate
+            this.hrSmoothed = Math.round(this.hrDecreaseSmoothFactor * heartRate + (1 - this.hrDecreaseSmoothFactor) * this.hrSmoothed);
+        }
+
+        // Update the Dreo profile every "hrModeUpdateFrequency" milliseconds 
+        if (Date.now() - this.hrModeLastUpdate >= this.hrModeUpdateFrequency) {
+            this.logger.debug(`BeatCount ${beatCount} / HR ${heartRate} / Smoothed HR ${this.hrSmoothed}`);
+            // This callback must execute fast so it should NOT wait for the "adjustDreoProfile" function
+            /* await */ this.adjustDreoProfile();
+            this.hrModeLastUpdate = Date.now();
         }
     }
 
     public onDetectedHandler(deviceId: number): void {
         this.logger.debug('Device detected (HR): ', deviceId);
         // Detect sensor inactivity (wait for 180,000 ms - 3 minutes)
-        clearTimeout(this.timeoutId);
-        this.timeoutId = setTimeout(async () => {
+        clearTimeout(this.handlerTimeoutId);
+        this.handlerTimeoutId = setTimeout(async () => {
             // Timeout without handling 'detected' callback.
             // Deactivate the HeartRateMode.
             this.logger.info(`No sensor activity (HR: ${deviceId}) - turning DREO off`);
