@@ -2,7 +2,7 @@ import rewire from "rewire";
 import nconf from 'nconf';
 import { Logger, ILogObj } from 'tslog';
 
-import { DreoAPI } from '../src/DreoAPI';
+import { DreoAPI, DreoState } from '../src/DreoAPI';
 import { DreoProfileType, DreoProfiles } from "../src/DreoProfile";
 import HeartRateMode from '../src/HeartRateMode';
 
@@ -43,162 +43,340 @@ afterEach(() => {
 });
 
 describe('HeartRateMode', () => {
-    describe('Profile functions', () => {
-        it('Checks that applyProfile works as expected', async () => {
-            // Assert
-            const spyProfileCenter_0 = jest.spyOn(DreoProfiles[DreoProfileType.CENTER_0], 'apply');
-            const spyProfileCenter_30 = jest.spyOn(DreoProfiles[DreoProfileType.CENTER_30], 'apply');
-            const spyAirCirculatorSpeed = jest.spyOn(hrm.dreo, 'airCirculatorSpeed');
+    describe('Handler functions', () => {
+        describe('Checks that onDataHandler works as expected', () => {
 
-            // Act
-            await hrm.applyProfile(DreoProfileType.CENTER_0, 1);
-
-            // Assert
-            // DreoProfileType.CENTER_0 is the new current profile, speed 1
-            expect(hrm.currentProfile).toBe(DreoProfileType.CENTER_0);
-            expect(hrm.currentSpeed).toBe(1);
-            expect(spyProfileCenter_0).toHaveBeenCalledTimes(1);
-            expect(spyProfileCenter_0).toHaveBeenLastCalledWith(hrm.dreoSerialNumber, hrm.dreo);
-            expect(spyAirCirculatorSpeed).toHaveBeenLastCalledWith(hrm.dreoSerialNumber, 1);
-            expect(spyProfileCenter_30).toHaveBeenCalledTimes(0);
-
-            // Act
-            await hrm.applyProfile(DreoProfileType.CENTER_0, 1);
-
-            // Assert
-            // No changes to currentProfile and/or currentSpeed
-            expect(hrm.currentProfile).toBe(DreoProfileType.CENTER_0);
-            expect(hrm.currentSpeed).toBe(1);
-            expect(spyProfileCenter_0).toHaveBeenCalledTimes(1);
-            expect(spyProfileCenter_0).toHaveBeenLastCalledWith(hrm.dreoSerialNumber, hrm.dreo);
-            expect(spyAirCirculatorSpeed).toHaveBeenLastCalledWith(hrm.dreoSerialNumber, 1);
-            expect(spyProfileCenter_30).toHaveBeenCalledTimes(0);
-
-            // Act
-            await hrm.applyProfile(DreoProfileType.CENTER_0, 2);
-
-            // Assert
-            // Changes currentSpeed, DreoProfileType.CENTER_0.apply should have been called
-            expect(hrm.currentProfile).toBe(DreoProfileType.CENTER_0);
-            expect(hrm.currentSpeed).toBe(2);
-            expect(spyProfileCenter_0).toHaveBeenCalledTimes(2);
-            expect(spyProfileCenter_0).toHaveBeenLastCalledWith(hrm.dreoSerialNumber, hrm.dreo);
-            expect(spyAirCirculatorSpeed).toHaveBeenLastCalledWith(hrm.dreoSerialNumber, 2);
-            expect(spyProfileCenter_30).toHaveBeenCalledTimes(0);
-
-            // Act
-            await hrm.applyProfile(DreoProfileType.CENTER_30, 2);
-
-            // Assert
-            // Changes currentProfile:
-            // - DreoProfileType.CENTER_0.apply should not have been called
-            // - DreoProfileTyoe.CENTER_30.apply should have been called
-            expect(hrm.currentProfile).toBe(DreoProfileType.CENTER_30);
-            expect(hrm.currentSpeed).toBe(2);
-            expect(spyProfileCenter_0).toHaveBeenCalledTimes(2);
-            expect(spyAirCirculatorSpeed).toHaveBeenLastCalledWith(hrm.dreoSerialNumber, 2);
-            expect(spyProfileCenter_30).toHaveBeenCalledTimes(1);
-            expect(spyProfileCenter_30).toHaveBeenLastCalledWith(hrm.dreoSerialNumber, hrm.dreo);
         });
 
+        describe('Checks that onDetectedHandler works as expected', () => {
+        });
+    });
+
+    describe('Profile functions', () => {
+        // it('Checks that applyProfile works as expected', async () => {
+        //     // Assert
+        //     const spyProfileCenter_0 = jest.spyOn(DreoProfiles[DreoProfileType.CENTER_0], 'apply');
+        //     const spyProfileCenter_30 = jest.spyOn(DreoProfiles[DreoProfileType.CENTER_30], 'apply');
+        //     const spyAirCirculatorSpeed = jest.spyOn(hrm.dreo, 'airCirculatorSpeed');
+
+        //     // Act
+        //     await hrm.applyProfile(DreoProfileType.CENTER_0, 1);
+
+        //     // Assert
+        //     // DreoProfileType.CENTER_0 is the new current profile, speed 1
+        //     expect(hrm.currentProfile).toBe(DreoProfileType.CENTER_0);
+        //     expect(hrm.currentSpeed).toBe(1);
+        //     expect(spyProfileCenter_0).toHaveBeenCalledTimes(1);
+        //     expect(spyProfileCenter_0).toHaveBeenLastCalledWith(hrm.dreoSerialNumber, hrm.dreo);
+        //     expect(spyAirCirculatorSpeed).toHaveBeenLastCalledWith(hrm.dreoSerialNumber, 1);
+        //     expect(spyProfileCenter_30).toHaveBeenCalledTimes(0);
+
+        //     // Act
+        //     await hrm.applyProfile(DreoProfileType.CENTER_0, 1);
+
+        //     // Assert
+        //     // No changes to currentProfile and/or currentSpeed
+        //     expect(hrm.currentProfile).toBe(DreoProfileType.CENTER_0);
+        //     expect(hrm.currentSpeed).toBe(1);
+        //     expect(spyProfileCenter_0).toHaveBeenCalledTimes(1);
+        //     expect(spyProfileCenter_0).toHaveBeenLastCalledWith(hrm.dreoSerialNumber, hrm.dreo);
+        //     expect(spyAirCirculatorSpeed).toHaveBeenLastCalledWith(hrm.dreoSerialNumber, 1);
+        //     expect(spyProfileCenter_30).toHaveBeenCalledTimes(0);
+
+        //     // Act
+        //     await hrm.applyProfile(DreoProfileType.CENTER_0, 2);
+
+        //     // Assert
+        //     // Changes currentSpeed, DreoProfileType.CENTER_0.apply should have been called
+        //     expect(hrm.currentProfile).toBe(DreoProfileType.CENTER_0);
+        //     expect(hrm.currentSpeed).toBe(2);
+        //     expect(spyProfileCenter_0).toHaveBeenCalledTimes(2);
+        //     expect(spyProfileCenter_0).toHaveBeenLastCalledWith(hrm.dreoSerialNumber, hrm.dreo);
+        //     expect(spyAirCirculatorSpeed).toHaveBeenLastCalledWith(hrm.dreoSerialNumber, 2);
+        //     expect(spyProfileCenter_30).toHaveBeenCalledTimes(0);
+
+        //     // Act
+        //     await hrm.applyProfile(DreoProfileType.CENTER_30, 2);
+
+        //     // Assert
+        //     // Changes currentProfile:
+        //     // - DreoProfileType.CENTER_0.apply should not have been called
+        //     // - DreoProfileTyoe.CENTER_30.apply should have been called
+        //     expect(hrm.currentProfile).toBe(DreoProfileType.CENTER_30);
+        //     expect(hrm.currentSpeed).toBe(2);
+        //     expect(spyProfileCenter_0).toHaveBeenCalledTimes(2);
+        //     expect(spyAirCirculatorSpeed).toHaveBeenLastCalledWith(hrm.dreoSerialNumber, 2);
+        //     expect(spyProfileCenter_30).toHaveBeenCalledTimes(1);
+        //     expect(spyProfileCenter_30).toHaveBeenLastCalledWith(hrm.dreoSerialNumber, hrm.dreo);
+        // });
+
         describe('Checks that adjustDreoProfile works as expected', () => {
-            it('Checks that isBusy works', async () => {
+            let spyDreoGetState: any;
+            let spyDreoAirCirculatorSpeed: any;
+            let spyGetFanSpeed: any;
+            let spyAdjustSpeedForTemperature: any;
+            let spyProfileCenter0Apply: any;
+            let spyProfileCenter30Apply: any;
+            let spyProfileCenter45Apply: any;
+            let spyProfileVerticalApply: any;
+            let spyLoggerInfo: any;
+
+            beforeEach(() => {
+                spyDreoGetState = jest.spyOn(hrm.dreo, 'getState');
+                spyDreoAirCirculatorSpeed = jest.spyOn(hrm.dreo, 'airCirculatorSpeed');
+                spyGetFanSpeed = jest.spyOn(hrm, 'getFanSpeed');
+                spyAdjustSpeedForTemperature = jest.spyOn(hrm, 'adjustSpeedForTemperature');
+                spyProfileCenter0Apply = jest.spyOn(DreoProfiles[DreoProfileType.CENTER_0], 'apply');
+                spyProfileCenter30Apply = jest.spyOn(DreoProfiles[DreoProfileType.CENTER_30], 'apply');
+                spyProfileCenter45Apply = jest.spyOn(DreoProfiles[DreoProfileType.CENTER_45], 'apply');
+                spyProfileVerticalApply = jest.spyOn(DreoProfiles[DreoProfileType.VERTICAL], 'apply');
+                spyLoggerInfo = jest.spyOn(hrm.logger, 'info');
+            });
+
+            afterEach(() => {
+                spyDreoGetState.mockClear();
+                spyDreoAirCirculatorSpeed.mockClear();
+                spyGetFanSpeed.mockClear();
+                spyAdjustSpeedForTemperature.mockClear();
+                spyProfileCenter0Apply.mockClear();
+                spyProfileCenter30Apply.mockClear();
+                spyProfileCenter45Apply.mockClear();
+                spyProfileVerticalApply.mockClear();
+                spyLoggerInfo.mockClear();
+                clearInterval(hrm.profileOverrideTimer);
+            });
+
+            it('Checks that isAdjustDreoProfileBusy works', async () => {                
                 // Arrange
-                hrm.isBusy = true;
-                const spyLogger = jest.spyOn(hrm.logger, 'info');
+                hrm.isAdjustDreoProfileBusy = true;
 
                 // Act
                 await hrm.adjustDreoProfile();
 
                 // Assert
-                expect(spyLogger).toHaveBeenCalledWith("Skipping DREO profile adjustment: busy");
+                expect(spyLoggerInfo).toHaveBeenCalledWith("Skipping DREO profile adjustment: busy");
             });
 
+            function setTest(speed: number): void {
+                spyGetFanSpeed.mockClear();
+                hrm.hrProfile = DreoProfileType.HORIZONTAL;
+                spyGetFanSpeed.mockImplementation(() => speed);
+            }
 
-            it('Checks that case-default works', async () => {
+            it('Checks adjustDreoProfile scenarios', async () => {
                 // Arrange
-                const hrConfig = nconf.get('user.heartrate');
-                const spyGetState = jest.spyOn(hrm.dreo, 'getState').mockImplementation((sn) => { return { poweron: true }; });
-                hrm.hrHistory = Array(hrConfig.sampleSize).fill(0);
-                const spyGetHRZ = jest.spyOn(hrm, 'getHeartRateZone').mockImplementation((avg) => 0);
-                const spyLogger = jest.spyOn(hrm.logger, 'info');
-                const spyAirCirculatorSpeed = jest.spyOn(hrm.dreo, 'airCirculatorSpeed');
-                const spyAirCirculatorPowerOn = jest.spyOn(hrm.dreo, 'airCirculatorPowerOn');
+                hrm.profileOverrideLastUpdate = Infinity; // Prevent profile override
+                spyDreoGetState.mockImplementation((sn: string) => { return {temperature: 75, windlevel: 9 }; });
                 
-                // Act 
+                // Act and assert
+                // Speed 1
+                setTest(1);
                 await hrm.adjustDreoProfile();
+                expect(spyProfileCenter0Apply).toHaveBeenCalledTimes(1);
+            
+                // Speed 2
+                setTest(2);
+                await hrm.adjustDreoProfile();
+                expect(spyProfileCenter30Apply).toHaveBeenCalledTimes(1);
+
+                // Speed 3
+                setTest(3);
+                await hrm.adjustDreoProfile();
+                expect(spyProfileCenter30Apply).toHaveBeenCalledTimes(2);
+
+                // Speed 4
+                setTest(4);
+                await hrm.adjustDreoProfile();
+                expect(spyProfileCenter45Apply).toHaveBeenCalledTimes(1);
+
+                // Speed 5
+                setTest(5);
+                await hrm.adjustDreoProfile();
+                expect(spyProfileCenter45Apply).toHaveBeenCalledTimes(2);
+
+                // Speed 6
+                setTest(6);
+                await hrm.adjustDreoProfile();
+                expect(spyProfileCenter45Apply).toHaveBeenCalledTimes(3);
+                
+                // Speed 7
+                setTest(7);
+                await hrm.adjustDreoProfile();
+                expect(spyProfileCenter45Apply).toHaveBeenCalledTimes(4);
+
                 // Assert
-                expect(spyGetState).toHaveBeenCalledTimes(1);
-                expect(spyLogger).toHaveBeenLastCalledWith('Adjusting DREO profile to Zone 0', '0.00', true);
-                expect(spyGetHRZ).toHaveBeenCalledWith(0);
-                expect(spyAirCirculatorSpeed).toHaveBeenCalledWith(hrm.dreoSerialNumber, 1);
-                expect(spyAirCirculatorPowerOn).toHaveBeenCalledWith(hrm.dreoSerialNumber, false);
+                expect(spyDreoGetState).toHaveBeenCalledTimes(7);
+                expect(spyAdjustSpeedForTemperature).toHaveBeenCalledTimes(7);
+                expect(spyProfileCenter0Apply).toHaveBeenCalledTimes(1);
+                expect(spyProfileCenter30Apply).toHaveBeenCalledTimes(2);
+                expect(spyProfileCenter45Apply).toHaveBeenCalledTimes(4);
+                expect(spyProfileVerticalApply).toHaveBeenCalledTimes(0);
+                expect(spyDreoAirCirculatorSpeed).toHaveBeenCalledTimes(7);
             });
 
-            // it('Checks that case-1 works', async () => {
-            //     // Arrange
-            //     const hrConfig = nconf.get('user.heartrate');
-            //     const hrZones = hrm.getHeartRateZones(hrConfig.rest, hrConfig.max, hrConfig.zones);
-            //     hrm.hrHistory = Array(hrConfig.sampleSize).fill(hrZones[0][1]-1);
+            it('Checks oscillation scenario', async () => {
+                // Arrange
+                spyDreoGetState.mockImplementation((sn: string) => { return {temperature: 60, windlevel: 9 }; });
+                spyGetFanSpeed.mockImplementation(() => 1);
                 
-            //     // Act
-            //     // TBD
-    
-            // });
+                // Act                
+                hrm.profileOverrideLastUpdate = 0; // Ensure oscillate profile override is triggered
+                await hrm.adjustDreoProfile();
+                hrm.hrModeUpdateFrequency = Infinity; // Ensure trigger is disabled
+                await hrm.adjustDreoProfile();
 
-            // it('Checks that case-2 works', async () => {
-            //     // Arrange
-            //     const hrConfig = nconf.get('user.heartrate');
-            //     const hrZones = hrm.getHeartRateZones(hrConfig.rest, hrConfig.max, hrConfig.zones);
-            //     hrm.hrHistory = Array(hrConfig.sampleSize).fill(hrZones[0][1]);
-                
-            //     // Act
-            //     // TBD
-    
-            // });
+                // Assert
+                expect(spyDreoGetState).toHaveBeenCalledTimes(2);
+                expect(spyGetFanSpeed).toHaveBeenCalledTimes(2);
+                expect(spyAdjustSpeedForTemperature).toHaveBeenCalledTimes(2);
+                expect(spyProfileCenter0Apply).toHaveBeenCalledTimes(1);
+                expect(spyProfileCenter30Apply).toHaveBeenCalledTimes(0);
+                expect(spyProfileCenter45Apply).toHaveBeenCalledTimes(0);
+                expect(spyProfileVerticalApply).toHaveBeenCalledTimes(1);
+                expect(spyDreoAirCirculatorSpeed).toHaveBeenCalledTimes(2);
+            });
 
-            // it('Checks that case-3 works', async () => {
-            //     // Arrange
-            //     const hrConfig = nconf.get('user.heartrate');
-            //     const hrZones = hrm.getHeartRateZones(hrConfig.rest, hrConfig.max, hrConfig.zones);
-            //     hrm.hrHistory = Array(hrConfig.sampleSize).fill(hrZones[1][1]);
-                
-            //     // Act
-            //     // TBD
-    
-            // });
+            /**
+             * This test assumes profile override frequency to be 10 seconds, with override duration to be 5 seconds.
+             * 
+             * The first call to adjustDreoProfile will trigger the profile oscillation override, which sould be in
+             * effect for the next 5 seconds.
+             * 
+             * During this time, the profile should always be DreoProfileType.HORIZONTAL.
+             * 
+             * After 5 seconds, the profile should be set to DreoProfileType.CENTER_0.
+             */
+            it('Checks oscillation frequency', async () => {
+                // Arrange
+                hrm.profileOverrideFrequency = 10000;
+                hrm.profileOverrideDuration = 5000;
+                // Forces HRM
+                hrm.profileOverrideLastUpdate = Date.now() - hrm.profileOverrideFrequency - 1;
+                spyDreoGetState.mockImplementation((sn: string) => { return {temperature: 60, windlevel: 1 }; });
+                const promises: Promise<any>[] = [];
 
-            // it('Checks that case-4 works', async () => {
-            //     // Arrange
-            //     const hrConfig = nconf.get('user.heartrate');
-            //     const hrZones = hrm.getHeartRateZones(hrConfig.rest, hrConfig.max, hrConfig.zones);
-            //     hrm.hrHistory = Array(hrConfig.sampleSize).fill(hrZones[2][1]);
-                
-            //     // Act
-            //     // TBD
-                
-    
-            // });
+                // Act and assert
+                hrm.hrModeUpdateFrequency = Infinity;
+                for (let i = 0; i < 6; i++) {
+                    promises.push(new Promise((resolve) => {
+                        setTimeout(async () => {
+                            await hrm.adjustDreoProfile();
+                            resolve(i);
+                        }, i * 1000);
+                    }));
+                }
+                await Promise.all(promises);
+                // Profile oscillation override should still be in place (5 seconds out of 10)
+                expect(hrm.profileOverrideTimer).not.toBeNull;
+                expect(spyDreoGetState).toHaveBeenCalledTimes(6);
+                expect(spyProfileCenter0Apply).toHaveBeenCalledTimes(0);
+                expect(spyProfileCenter30Apply).toHaveBeenCalledTimes(0);
+                expect(spyProfileCenter45Apply).toHaveBeenCalledTimes(0);
+                expect(spyProfileVerticalApply).toHaveBeenCalledTimes(1);
+                expect(hrm.hrProfile).toBe(DreoProfileType.VERTICAL);
 
-            // it('Checks that case-5 works', async () => {
-            //     // Arrange
-            //     const hrConfig = nconf.get('user.heartrate');
-            //     const hrZones = hrm.getHeartRateZones(hrConfig.rest, hrConfig.max, hrConfig.zones);
-            //     hrm.hrHistory = Array(hrConfig.sampleSize).fill(hrZones[3][1]);
-                
-            //     // Act
-            //     // TBD
-                
-    
-            // });
-        });
-
-        it('Checks that applyProfile works as expected', () => {
-            // TBD
+                // Profile oscillation override should have ended, reverting to normal
+                hrm.hrModeUpdateFrequency = 0;
+                for (let i = 0; i < 6; i++) {
+                    promises.push(new Promise((resolve) => {
+                        setTimeout(async () => {
+                            await hrm.adjustDreoProfile();
+                            resolve(i);
+                        }, i * 1000);
+                    }));
+                }
+                await Promise.all(promises);
+                expect(hrm.profileOverrideTimer).toBeNull;
+                expect(spyDreoGetState).toHaveBeenCalledTimes(12);
+                expect(spyProfileCenter0Apply).toHaveBeenCalledTimes(1);
+                expect(spyProfileCenter30Apply).toHaveBeenCalledTimes(0);
+                expect(spyProfileCenter45Apply).toHaveBeenCalledTimes(0);
+                expect(spyProfileVerticalApply).toHaveBeenCalledTimes(1);
+                expect(hrm.hrProfile).toBe(DreoProfileType.CENTER_0);
+            }, 15000);
         });
     });
 
     describe('Utility functions', () => {
+        function testFanSpeed(hrZones: number[][], index: number): number[] {
+            const result: number[] = [];
+            hrm.hrSmoothed = hrZones[index][0]-1;
+            result.push(hrm.getFanSpeed());
+            hrm.hrSmoothed = hrZones[index][0];
+            result.push(hrm.getFanSpeed());
+            hrm.hrSmoothed = hrZones[index][0]+1;
+            result.push(hrm.getFanSpeed());
+            hrm.hrSmoothed = Math.round((hrZones[index][1] + hrZones[index][0])/2);
+            result.push(hrm.getFanSpeed());
+            hrm.hrSmoothed = hrZones[index][1]-1;
+            result.push(hrm.getFanSpeed());
+            hrm.hrSmoothed = hrZones[index][1];
+            result.push(hrm.getFanSpeed());
+            hrm.hrSmoothed = hrZones[index][1]+1;
+            result.push(hrm.getFanSpeed());
+            return result;
+        };
+
+        it('Checks that getFanSpeed works as expected', () => {
+            // Arrange
+            const minFanSpeed = 1;
+            const maxFanSpeed = 7;
+            const hrConfig = nconf.get('user.heartrate');
+            const hrZones = hrm.getHeartRateZones(hrConfig.rest, hrConfig.max, hrConfig.zones);
+
+            // Act and Assert
+            // Zone 1 - speeds 1-2
+            expect(testFanSpeed(hrZones, 0)).toEqual([1, 1, 1, 2, 2, 2, 2]);
+
+            // Zone 2 - speeds 2-3
+            expect(testFanSpeed(hrZones, 1)).toEqual([2, 2, 2, 3, 3, 3, 3]);
+
+            // Zone 3 - speeds 3-4
+            expect(testFanSpeed(hrZones, 2)).toEqual([3, 3, 3, 4, 4, 4, 4]);
+
+            // Zone 4 - speeds 4-5
+            expect(testFanSpeed(hrZones, 3)).toEqual([4, 4, 4, 5, 5, 5, 5]);
+
+            // Zone 5 - speeds 5-7
+            expect(testFanSpeed(hrZones, 4)).toEqual([5, 5, 5, 6, 7, 7, 7]);
+        });
+
+        it('Checks that adjustSpeedForTemperature works as expected', () => {
+            // Arrange
+            // Nothing to be done
+
+            // Act
+            // Nothing to be done
+
+            // Assert
+            // Less than 65F
+            expect(hrm.adjustSpeedForTemperature(1, 64)).toBe(1);
+            expect(hrm.adjustSpeedForTemperature(2, 64)).toBe(1);
+
+            // At 65F
+            expect(hrm.adjustSpeedForTemperature(1, 65)).toBe(1);
+
+            // Less than 75F
+            expect(hrm.adjustSpeedForTemperature(1, 70)).toBe(1);
+
+            // At 75F
+            expect(hrm.adjustSpeedForTemperature(1, 75)).toBe(1);
+
+            // Less than 85F
+            expect(hrm.adjustSpeedForTemperature(1, 76)).toBe(2);
+            expect(hrm.adjustSpeedForTemperature(9, 76)).toBe(9);
+            
+            // At 85F
+            expect(hrm.adjustSpeedForTemperature(1, 85)).toBe(2);
+            expect(hrm.adjustSpeedForTemperature(9, 85)).toBe(9);
+
+            // Greater than 85F
+            expect(hrm.adjustSpeedForTemperature(1, 86)).toBe(3);
+            expect(hrm.adjustSpeedForTemperature(7, 86)).toBe(9);
+            expect(hrm.adjustSpeedForTemperature(8, 86)).toBe(9);
+            expect(hrm.adjustSpeedForTemperature(9, 86)).toBe(9);
+        });
+
         it('Checks that getHeartRateZones works as expected', () => {
             // Arrange
             const hrConfig = nconf.get('user.heartrate');
@@ -210,69 +388,52 @@ describe('HeartRateMode', () => {
             expect(hrZones[0][0]).toBe(105);
             expect(hrZones[0][1]).toBe(130);
             expect(hrZones[1][0]).toBe(130);
-            expect(hrZones[1][1]).toBe(142.5);
-            expect(hrZones[2][0]).toBe(142.5);
+            expect(hrZones[1][1]).toBe(143);
+            expect(hrZones[2][0]).toBe(143);
             expect(hrZones[2][1]).toBe(155);
             expect(hrZones[3][0]).toBe(155);
-            expect(hrZones[3][1]).toBe(167.5);
-            expect(hrZones[4][0]).toBe(167.5);
+            expect(hrZones[3][1]).toBe(168);
+            expect(hrZones[4][0]).toBe(168);
             expect(hrZones[4][1]).toBe(180);
         });
 
-        it('Checks that getSpeedOffset works as expected', () => {
-            // Arrange
-            const min = Math.floor(Math.random() * (100 - 55) + 55);
-            const max = Math.floor(Math.random() * (210 - 101) + 101);
-            const range = [min, max];
-            const split1 = [0, 0];
-            const split2 = [0, 0, 0];
-            
-            // Act 
-            for (let i = range[0]; i < range[1]; i++) {
-                split1[hrm.getSpeedOffset(range[0], range[1], i, 1)]++;
-                split2[hrm.getSpeedOffset(range[0], range[1], i, 2)]++;
-            }
-
-            // Assert
-            expect(hrm.getSpeedOffset(range[0], range[1], Math.random() * 200 + 100, 0)).toBe(0);
-            expect(hrm.getSpeedOffset(10, 20, 20, 11)).toBe(10);
-
-            expect(split1[0] + split1[1]).toBe(range[1] - range[0]);
-            expect(split2[0] + split2[1] + split2[2]).toBe(range[1] - range[0]);
-
-            expect(Math.abs(split1[0] - split1[1])).toBeLessThanOrEqual(1);
-            expect(Math.abs(split2[0] - split2[1])).toBe(0);
-            expect(Math.abs(split2[1] - split2[2])).toBeLessThanOrEqual(2);
-        });
+        function testHeartRateZone(hrZones: number[][], index: number): number[] {
+            const result: number[] = [];
+            hrm.hrSmoothed = hrZones[index][0]-1;
+            result.push(hrm.getHeartRateZone());
+            hrm.hrSmoothed = hrZones[index][0];
+            result.push(hrm.getHeartRateZone());
+            hrm.hrSmoothed = hrZones[index][0]+1;
+            result.push(hrm.getHeartRateZone());
+            hrm.hrSmoothed = hrZones[index][1]-1;
+            result.push(hrm.getHeartRateZone());
+            hrm.hrSmoothed = hrZones[index][1];
+            result.push(hrm.getHeartRateZone());
+            hrm.hrSmoothed = hrZones[index][1]+1;
+            result.push(hrm.getHeartRateZone());
+            return result;
+        };
 
         it('Checks that getHeartRateZone works as expected', () => {   
             // Arrange
             const hrConfig = nconf.get('user.heartrate');
-            const hrZones = hrm.getHeartRateZones(hrConfig.rest, hrConfig.max, hrConfig.zones);
+            const hrZones = hrm.getHeartRateZones(hrConfig.rest, hrConfig.max, hrConfig.zones) as number[][];
             
             // Act and Assert
-            expect(hrm.getHeartRateZone(hrZones[0][0]-1)).toBe(0);
-            expect(hrm.getHeartRateZone(hrZones[0][0])).toBe(0);
+            // Zone 1
+            expect(testHeartRateZone(hrZones, 0)).toEqual([1, 1, 1, 1, 1, 2]);
 
-            expect(hrm.getHeartRateZone(hrZones[0][1]-1)).toBe(1);
+            // Zone 2
+            expect(testHeartRateZone(hrZones, 1)).toEqual([1, 1, 2, 2, 2, 3]);
 
-            expect(hrm.getHeartRateZone(hrZones[0][1])).toBe(2);
-            expect(hrm.getHeartRateZone(hrZones[1][0])).toBe(2);
-            expect(hrm.getHeartRateZone(hrZones[1][1]-1)).toBe(2);
+            // Zone 3
+            expect(testHeartRateZone(hrZones, 2)).toEqual([2, 2, 3, 3, 3, 4]);
 
-            expect(hrm.getHeartRateZone(hrZones[1][1])).toBe(3);
-            expect(hrm.getHeartRateZone(hrZones[2][0])).toBe(3);
-            expect(hrm.getHeartRateZone(hrZones[2][1]-1)).toBe(3);
+            // Zone 4
+            expect(testHeartRateZone(hrZones, 3)).toEqual([3, 3, 4, 4, 4, 5]);
 
-            expect(hrm.getHeartRateZone(hrZones[2][1])).toBe(4);
-            expect(hrm.getHeartRateZone(hrZones[3][0])).toBe(4);
-            expect(hrm.getHeartRateZone(hrZones[3][1]-1)).toBe(4);
-
-            expect(hrm.getHeartRateZone(hrZones[3][1])).toBe(5);
-            expect(hrm.getHeartRateZone(hrZones[4][0])).toBe(5);
-            expect(hrm.getHeartRateZone(hrZones[4][1]-1)).toBe(5);
-            expect(hrm.getHeartRateZone(hrZones[4][1])).toBe(5);
-            expect(hrm.getHeartRateZone(hrZones[4][1]+1)).toBe(5);
+            // Zone 5
+            expect(testHeartRateZone(hrZones, 4)).toEqual([4, 4, 5, 5, 5, 5]);
         });
     });
 });
