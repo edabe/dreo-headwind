@@ -119,7 +119,7 @@ describe('HeartRateMode', () => {
             let spyProfileCenter30Apply: any;
             let spyProfileCenter45Apply: any;
             let spyProfileVerticalApply: any;
-            let spyLoggerInfo: any;
+            let spyLoggerDebug: any;
 
             beforeEach(() => {
                 spyDreoGetState = jest.spyOn(hrm.dreo, 'getState');
@@ -130,7 +130,7 @@ describe('HeartRateMode', () => {
                 spyProfileCenter30Apply = jest.spyOn(DreoProfiles[DreoProfileType.CENTER_30], 'apply');
                 spyProfileCenter45Apply = jest.spyOn(DreoProfiles[DreoProfileType.CENTER_45], 'apply');
                 spyProfileVerticalApply = jest.spyOn(DreoProfiles[DreoProfileType.VERTICAL], 'apply');
-                spyLoggerInfo = jest.spyOn(hrm.logger, 'info');
+                spyLoggerDebug = jest.spyOn(hrm.logger, 'debug');
             });
 
             afterEach(() => {
@@ -142,7 +142,7 @@ describe('HeartRateMode', () => {
                 spyProfileCenter30Apply.mockClear();
                 spyProfileCenter45Apply.mockClear();
                 spyProfileVerticalApply.mockClear();
-                spyLoggerInfo.mockClear();
+                spyLoggerDebug.mockClear();
                 clearInterval(hrm.profileOverrideTimer);
             });
 
@@ -154,7 +154,7 @@ describe('HeartRateMode', () => {
                 await hrm.adjustDreoProfile();
 
                 // Assert
-                expect(spyLoggerInfo).toHaveBeenCalledWith("Skipping DREO profile adjustment: busy");
+                expect(spyLoggerDebug).toHaveBeenCalledWith("Skipping DREO profile adjustment: busy");
             });
 
             function setTest(speed: number): void {

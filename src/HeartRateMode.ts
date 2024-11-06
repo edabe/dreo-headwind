@@ -121,7 +121,7 @@ export default class HeartRateMode {
     private async adjustDreoProfile(): Promise<void> {
         // Ignore call if busy
         if (this.isAdjustDreoProfileBusy) {
-            this.logger.info('Skipping DREO profile adjustment: busy');
+            this.logger.debug('Skipping DREO profile adjustment: busy');
             return;
         }
         // Sets function to 'busy'
@@ -179,6 +179,7 @@ export default class HeartRateMode {
         this.logger.debug(`Adjust profile ${this.hrProfile} / ${fanProfile} / ${currentSpeed} / ${fanSpeed} / ${this.hrSmoothed}`);
         if (this.hrProfile !== fanProfile || currentSpeed !== fanSpeed) {
             this.hrProfile = fanProfile;
+            this.logger.info(`Adjusting profile: ${this.hrProfile} with fan speed ${fanSpeed}, HR ${this.hrSmoothed} BMP and ${temperature}F`);
             await DreoProfiles[fanProfile].apply(this.dreoSerialNumber, this.dreo); // 'apply' will turn the fan on if needed
             await this.dreo.airCirculatorSpeed(this.dreoSerialNumber, fanSpeed);
         }
@@ -323,6 +324,7 @@ export default class HeartRateMode {
 
         // Check if HR message is repeated or corrupted
         if (isNaN(heartRate) || beatCount === this.hrLastBeatCount) {
+            this.logger.debug(`onDataHandler: ignoring call: ${heartRate} / ${beatCount}`);
             return; // Ignore repeated / corrupted callback
         }
 
