@@ -220,7 +220,7 @@ export class DreoAPI {
     this.webSocketTimer = setInterval(() => this.webSocket?.send('2'), 15000);
   }
 
-  protected async sendCommand(serialNumber: string, parameters: object, wait: number): Promise<void> {
+  public async sendCommand(serialNumber: string, parameters: object, wait: number): Promise<void> {
     if (!this.webSocket) await this.startWebSocket();
     const message = JSON.stringify({
       'devicesn': serialNumber,
