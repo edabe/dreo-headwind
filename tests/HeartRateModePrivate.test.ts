@@ -112,7 +112,7 @@ describe('HeartRateMode', () => {
 
         describe('Checks that adjustDreoProfile works as expected', () => {
             let spyDreoGetState: any;
-            let spyDreoAirCirculatorSpeed: any;
+            let spyDreoSendCommand: any;
             let spyGetFanSpeed: any;
             let spyAdjustSpeedForTemperature: any;
             let spyProfileCenter0Apply: any;
@@ -123,7 +123,7 @@ describe('HeartRateMode', () => {
 
             beforeEach(() => {
                 spyDreoGetState = jest.spyOn(hrm.dreo, 'getState');
-                spyDreoAirCirculatorSpeed = jest.spyOn(hrm.dreo, 'airCirculatorSpeed');
+                spyDreoSendCommand = jest.spyOn(hrm.dreo, 'sendCommand');
                 spyGetFanSpeed = jest.spyOn(hrm, 'getFanSpeed');
                 spyAdjustSpeedForTemperature = jest.spyOn(hrm, 'adjustSpeedForTemperature');
                 spyProfileCenter0Apply = jest.spyOn(DreoProfiles[DreoProfileType.CENTER_0], 'apply');
@@ -135,7 +135,7 @@ describe('HeartRateMode', () => {
 
             afterEach(() => {
                 spyDreoGetState.mockClear();
-                spyDreoAirCirculatorSpeed.mockClear();
+                spyDreoSendCommand.mockClear();
                 spyGetFanSpeed.mockClear();
                 spyAdjustSpeedForTemperature.mockClear();
                 spyProfileCenter0Apply.mockClear();
@@ -211,7 +211,7 @@ describe('HeartRateMode', () => {
                 expect(spyProfileCenter30Apply).toHaveBeenCalledTimes(2);
                 expect(spyProfileCenter45Apply).toHaveBeenCalledTimes(4);
                 expect(spyProfileVerticalApply).toHaveBeenCalledTimes(0);
-                expect(spyDreoAirCirculatorSpeed).toHaveBeenCalledTimes(7);
+                expect(spyDreoSendCommand).toHaveBeenCalledTimes(7);
             });
 
             it('Checks oscillation scenario', async () => {
@@ -233,7 +233,7 @@ describe('HeartRateMode', () => {
                 expect(spyProfileCenter30Apply).toHaveBeenCalledTimes(0);
                 expect(spyProfileCenter45Apply).toHaveBeenCalledTimes(0);
                 expect(spyProfileVerticalApply).toHaveBeenCalledTimes(1);
-                expect(spyDreoAirCirculatorSpeed).toHaveBeenCalledTimes(2);
+                expect(spyDreoSendCommand).toHaveBeenCalledTimes(2);
             });
 
             /**

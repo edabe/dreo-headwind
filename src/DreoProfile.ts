@@ -3,18 +3,18 @@
  * A profile is a set of oscilating configurations to be
  * applied to the air circulator.
  */
-import { AirCirculatorOscillation, DreoAPI } from './DreoAPI';
+import { DreoAPI } from './DreoAPI';
 
 // This is the cruise parameters used in this context
 // Horizontal -15 to 15
 // Vertical 15 to 65
-const CRUISE_HORIZONTAL: [number, number] = [0, 30];
-const CRUISE_VERTICAL: [number, number] = [30, 30];
+// Cruise horizongal [0, 30]
+// Cruise vertical [30, 30]
 
 export abstract class DreoProfile {
-    name: string;
+    protected name: string;
     // All implementations must be async
-    abstract apply(dreoSerialNumber: string, dreoApi: DreoAPI): Promise<void>;
+    abstract apply(dreoSerialNumber: string, dreoApi: DreoAPI, fanSpeed: number): Promise<void>;
     toString(): string {
         return this?.name;
     }
@@ -22,54 +22,91 @@ export abstract class DreoProfile {
 
 class OscillateHorizontalProfile extends DreoProfile {
     name = 'OSCILATE_HORIZONTAL';
-    async apply(serialNumber: string, dreoApi: DreoAPI) {
-        await dreoApi.airCirculatorPowerOn(serialNumber, true);
-        await dreoApi.airCirculatorPosition(serialNumber, [0, 30]);
-        await dreoApi.airCirculatorCruise(serialNumber, CRUISE_HORIZONTAL, CRUISE_VERTICAL);
-        await dreoApi.airCirculatorOscillate(serialNumber, AirCirculatorOscillation.HORIZONTAL);
+    async apply(serialNumber: string, dreoApi: DreoAPI, fanSpeed: number) {
+        // Create a command template for this profile
+        const template = {
+            power: true, // Turn on fan
+            fixedconf: '30,0', // Set position (equivalent to position [0,30])
+            cruiseconf: '45,15,15,-15', // Set cruise mode (equivalent to CRUISE_HORIZONTAL, CRUISE_VERTICAL)
+            oscmode: 1, // Set oscillation (equivalnt to AirCirculatorOscillation.HORIZONTAL)
+            windlevel: fanSpeed
+        };
+        await dreoApi.sendCommand(serialNumber, template, 1000);
     }
 }
 
 class OscillateVerticalProfile extends DreoProfile {
     name = 'OSCILATE_VERTICAL';
-    async apply(serialNumber: string, dreoApi: DreoAPI) {
-        await dreoApi.airCirculatorPowerOn(serialNumber, true);
-        await dreoApi.airCirculatorPosition(serialNumber, [0, 30]);
-        await dreoApi.airCirculatorCruise(serialNumber, CRUISE_HORIZONTAL, CRUISE_VERTICAL);
-        await dreoApi.airCirculatorOscillate(serialNumber, AirCirculatorOscillation.VERTICAL);
+    async apply(serialNumber: string, dreoApi: DreoAPI, fanSpeed: number) {
+        // Create a command template for this profile
+        const template = {
+            power: true, // Turn on fan
+            fixedconf: '30,0', // Set position (equivalent to position [0,30])
+            cruiseconf: '45,15,15,-15', // Set cruise mode (equivalent to CRUISE_HORIZONTAL, CRUISE_VERTICAL)
+            oscmode: 2, // Set oscillation (equivalnt to AirCirculatorOscillation.VERTICAL)
+            windlevel: fanSpeed
+        };
+        await dreoApi.sendCommand(serialNumber, template, 1000);
     }
 }
 
 class OscillateHorizontalVerticalProfile extends DreoProfile {
     name = 'OSCILATE_HORIZONTAL_VERTICAL';
-    async apply(serialNumber: string, dreoApi: DreoAPI) {
-        await dreoApi.airCirculatorPowerOn(serialNumber, true);
-        await dreoApi.airCirculatorCruise(serialNumber, CRUISE_HORIZONTAL, CRUISE_VERTICAL);
-        await dreoApi.airCirculatorOscillate(serialNumber, AirCirculatorOscillation.HORIZONTAL_VERTICAL);
+    async apply(serialNumber: string, dreoApi: DreoAPI, fanSpeed: number) {
+        // Create a command template for this profile
+        const template = {
+            power: true, // Turn on fan
+            fixedconf: '30,0', // Set position (equivalent to position [0,30])
+            cruiseconf: '45,15,15,-15', // Set cruise mode (equivalent to CRUISE_HORIZONTAL, CRUISE_VERTICAL)
+            oscmode: 3, // Set oscillation (equivalnt to AirCirculatorOscillation.HORIZONTAL_VERTICAL)
+            windlevel: fanSpeed
+        };
+        await dreoApi.sendCommand(serialNumber, template, 1000);
     }
 }
 
 class Center45Degrees extends DreoProfile {
     name = 'CENTER_45_DEGREE';
-    async apply(serialNumber: string, dreoApi: DreoAPI) {
-        await dreoApi.airCirculatorPowerOn(serialNumber, true);
-        await dreoApi.airCirculatorPosition(serialNumber, [0, 45]);
+    async apply(serialNumber: string, dreoApi: DreoAPI, fanSpeed: number) {
+        // Create a command template for this profile
+        const template = {
+            power: true, // Turn on fan
+            fixedconf: '45,0', // Set position (equivalent to position [0,45])
+            cruiseconf: '45,15,15,-15', // Set cruise mode (equivalent to CRUISE_HORIZONTAL, CRUISE_VERTICAL)
+            oscmode: 0, // Set oscillation (equivalnt to AirCirculatorOscillation.NONE)
+            windlevel: fanSpeed
+        };
+        await dreoApi.sendCommand(serialNumber, template, 1000);
     }
 }
 
 class Center30Degrees extends DreoProfile {
     name = 'CENTER_30_DEGREE';
-    async apply(serialNumber: string, dreoApi: DreoAPI) {
-        await dreoApi.airCirculatorPowerOn(serialNumber, true);
-        await dreoApi.airCirculatorPosition(serialNumber, [0, 30]);
+    async apply(serialNumber: string, dreoApi: DreoAPI, fanSpeed: number) {
+        // Create a command template for this profile
+        const template = {
+            power: true, // Turn on fan
+            fixedconf: '30,0', // Set position (equivalent to position [0,30])
+            cruiseconf: '45,15,15,-15', // Set cruise mode (equivalent to CRUISE_HORIZONTAL, CRUISE_VERTICAL)
+            oscmode: 0, // Set oscillation (equivalnt to AirCirculatorOscillation.NONE)
+            windlevel: fanSpeed
+        };
+        await dreoApi.sendCommand(serialNumber, template, 1000);
     }
 }
 
 class Center0Degrees extends DreoProfile {
     name = 'CENTER_0_DEGREE';
-    async apply(serialNumber: string, dreoApi: DreoAPI) {
-        await dreoApi.airCirculatorPowerOn(serialNumber, true);
-        await dreoApi.airCirculatorPosition(serialNumber, [0, 0]);
+    async apply(serialNumber: string, dreoApi: DreoAPI, fanSpeed: number) {
+        // Create a command template for this profile
+        const template = {
+            power: true, // Turn on fan
+            fixedconf: '0,0', // Set position (equivalent to position [0,0])
+            cruiseconf: '45,15,15,-15', // Set cruise mode (equivalent to CRUISE_HORIZONTAL, CRUISE_VERTICAL)
+            oscmode: 0, // Set oscillation (equivalnt to AirCirculatorOscillation.NONE)
+            windlevel: fanSpeed
+        };
+        await dreoApi.sendCommand(serialNumber, template, 1000);
     }
 }
 
