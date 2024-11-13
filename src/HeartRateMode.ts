@@ -180,7 +180,13 @@ export default class HeartRateMode {
         if (this.hrProfile !== fanProfile || currentSpeed !== fanSpeed) {
             this.hrProfile = fanProfile;
             this.logger.info(`Adjusting profile: ${this.hrProfile} with fan speed ${fanSpeed}, HR ${this.hrSmoothed} BMP and ${temperature}F`);
+            if (!dreoState?.poweron) {
+                this.logger.info('Turning fan on');
+                await this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, true);
+            }
             await DreoProfiles[fanProfile].apply(this.dreoSerialNumber, this.dreo, fanSpeed); // 'apply' will turn the fan on if needed
+        } else {
+            this.logger.info(`Skipping adjust profile: ${this.hrProfile} / ${fanProfile} / ${currentSpeed} / ${fanSpeed}`);
         }
         this.isAdjustDreoProfileBusy = false;
     }
