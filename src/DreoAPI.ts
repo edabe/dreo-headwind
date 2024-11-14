@@ -86,17 +86,16 @@ export type DreoState = {
 }
 
 export enum AirCirculatorOscillation { 'NONE', 'HORIZONTAL', 'VERTICAL', 'HORIZONTAL_VERTICAL' }
-export enum AirCirculatorMode { 'NORMAL' = 1, 'NEUTRAL', 'SLEEP', 'AUTO', 'TURBO' }
+export enum AirCirculatorMode { 'NORMAL' = 1, 'NATURAL', 'SLEEP', 'AUTO', 'TURBO' }
 export enum AirCirculatorCalibration { 'HORIZONTAL', 'VERTICAL', 'HORIZONTAL_VERTICAL' }
 
-export type DreoCommands = {
-  oscmode?: AirCirculatorOscillation,
+export type DreoCommand = {
+  oscmode: AirCirculatorOscillation,
+  windlevel: number,
+  fixedconf: string,
+  cruiseconf: string,
   mode?: AirCirculatorMode,
-  windlevel?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9,
-  fixedconf?: string,
-  cruiseconf?: string
   muteon?: boolean,
-  poweron?: boolean,
   childlockon?: boolean,
   lightsensoro?: boolean,
 }
@@ -220,7 +219,7 @@ export class DreoAPI {
     this.webSocketTimer = setInterval(() => this.webSocket?.send('2'), 15000);
   }
 
-  public async sendCommand(serialNumber: string, parameters: object, wait: number): Promise<void> {
+  private async sendCommand(serialNumber: string, parameters: object, wait: number): Promise<void> {
     if (!this.webSocket) await this.startWebSocket();
     const message = JSON.stringify({
       'devicesn': serialNumber,
@@ -347,6 +346,13 @@ export class DreoAPI {
     this.config.logger.debug('DreoAPI getTemperature', deviceSn);
     const state = await this.getState(deviceSn);
     return state?.temperature as number;
+  }
+
+  public async airCirculatorCommand(deviceSn: string, command: DreoCommand): Promise<void> {
+    // Ensure wind level is within acceptable range
+    command.windlevel = command.windlevel < 1 ? 1 : command.windlevel > 9 ? 9 : command.windlevel
+    this.config.logger.debug('DreoAPI airCirculatorCommand', deviceSn, command);
+    await this.sendCommand(deviceSn, command, 1000);
   }
 
   public async airCirculatorPowerOn(deviceSn: string, powerOn: boolean): Promise<void> {
