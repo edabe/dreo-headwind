@@ -1,4 +1,5 @@
+.vscode/settings.json
 node_modules/
 dist/
 config/config.json
-.vscode/settings.json
+tests/node-repl.sh

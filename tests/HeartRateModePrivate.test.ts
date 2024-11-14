@@ -123,7 +123,7 @@ describe('HeartRateMode', () => {
 
             beforeEach(() => {
                 spyDreoGetState = jest.spyOn(hrm.dreo, 'getState');
-                spyDreoSendCommand = jest.spyOn(hrm.dreo, 'sendCommand');
+                spyDreoSendCommand = jest.spyOn(hrm.dreo, 'airCirculatorCommand');
                 spyGetFanSpeed = jest.spyOn(hrm, 'getFanSpeed');
                 spyAdjustSpeedForTemperature = jest.spyOn(hrm, 'adjustSpeedForTemperature');
                 spyProfileCenter0Apply = jest.spyOn(DreoProfiles[DreoProfileType.CENTER_0], 'apply');
