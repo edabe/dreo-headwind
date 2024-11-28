@@ -45,7 +45,6 @@ afterEach(() => {
 describe('HeartRateMode', () => {
     describe('Handler functions', () => {
         describe('Checks that onDataHandler works as expected', () => {
-
         });
 
         describe('Checks that onDetectedHandler works as expected', () => {

@@ -304,6 +304,7 @@ export default class HeartRateMode {
 
     public async cleanup(): Promise<void> {
         // Clean up timers
+        this.logger.info(`Cleaning up HeartRateMode ${this.handlerTimeoutId}`);
         clearTimeout(this.handlerTimeoutId);
         await this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, false);
         this.dreo.disconnect();
