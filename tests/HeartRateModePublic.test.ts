@@ -1,8 +1,8 @@
 import nconf from 'nconf';
 import { Logger, ILogObj } from 'tslog';
 
-import HeartRateMode from '../src/HeartRateMode';
-import { DreoAPI } from '../src/DreoAPI';
+import HeartRateMode from '../src/model/HeartRateMode';
+import { DreoAPI } from '../src/control/DreoAPI';
 
 // Initialize logger
 const logger = new Logger<ILogObj>({ 
@@ -19,7 +19,7 @@ nconf.set('user.heartrate', {
 });
 
 // Mock DreoAPI
-jest.mock('../src/DreoAPI');
+jest.mock('../src/control/DreoAPI');
 const mockDreoAPI = jest.mocked(DreoAPI, { shallow: false });
 
 // Heart rate mode instance
