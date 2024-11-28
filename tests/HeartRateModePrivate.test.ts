@@ -2,9 +2,9 @@ import rewire from "rewire";
 import nconf from 'nconf';
 import { Logger, ILogObj } from 'tslog';
 
-import { DreoAPI, DreoState } from '../src/DreoAPI';
-import { DreoProfileType, DreoProfiles } from "../src/DreoProfile";
-import HeartRateMode from '../src/HeartRateMode';
+import { DreoAPI, DreoState } from '../src/control/DreoAPI';
+import { DreoProfileType, DreoProfiles } from "../src/control/DreoProfile";
+import HeartRateMode from '../src/model/HeartRateMode';
 
 // Initialize logger
 const logger = new Logger<ILogObj>({ 
@@ -21,7 +21,7 @@ nconf.set('user.heartrate', {
 });
 
 // Mock DreoAPI
-jest.mock('../src/DreoAPI');
+jest.mock('../src/control/DreoAPI');
 const mockDreoAPI = jest.mocked(DreoAPI, { shallow: false });
 
 // Heart rate mode instance

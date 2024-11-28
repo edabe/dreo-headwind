@@ -1,9 +1,9 @@
 import { ILogObj, Logger } from 'tslog';
-import { DreoAPI } from './DreoAPI';
+import { DreoAPI } from '../control/DreoAPI';
 import { SensorState } from 'incyclist-ant-plus/lib/sensors/base-sensor';
 import { HeartRateSensorState } from 'incyclist-ant-plus';
 import { Provider } from 'nconf';
-import { DreoProfileType, DreoProfiles } from './DreoProfile';
+import { DreoProfileType, DreoProfiles } from '../control/DreoProfile';
 
 /**
  * The HeartRateMode will control the Dreo air circulator based on heart 
@@ -363,7 +363,7 @@ export default class HeartRateMode {
             // Timeout without handling 'detected' callback.
             // Deactivate the HeartRateMode.
             this.logger.info(`No sensor activity (HR: ${deviceId}) - turning DREO off`);
-            await this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, false);
+            this.cleanup();
         }, 180000);
     }
 }

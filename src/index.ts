@@ -2,7 +2,7 @@ import { Logger, ILogObj } from 'tslog';
 import nconf from 'nconf';
 import { AntDevice, Channel, HeartRateSensor, BicyclePowerSensor, FitnessEquipmentSensor, CadenceSensor, ISensor  } from 'incyclist-ant-plus';
 import { SensorState } from 'incyclist-ant-plus/lib/sensors/base-sensor';
-import HeartRateMode from './HeartRateMode';
+import HeartRateMode from './model/HeartRateMode';
 
 // Initialize logger
 const logger = new Logger<ILogObj>({ 
