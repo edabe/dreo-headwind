@@ -8,6 +8,12 @@ import { Logger, ILogObj } from 'tslog';
 /**
  * DreoAPI is based heavily on https://github.com/zyonse/homebridge-dreo
  * This file is manually sync'ed from the homebridge-dreo source
+ * 
+ * History:
+ * 2024.11.27 - synchronizing with homebridge-dreo v4.0.4
+ *     Note: Hacking commit c45768a: the list device API seems odd.
+ *           Using something that matches 'getState' instead
+ * 2024.10.05 - synchronizing with homebridge-dreo v3.3.3
  */
 
 // Configure retry capabilities
@@ -156,12 +162,12 @@ export class DreoAPI {
     //   return response
     // });
     await axios.post(`https://app-api-${this.config.server}.dreo-cloud.com/api/oauth/login`, {
-      'client_id': '7de37c362ee54dcf9c4561812309347a',
-      'client_secret': '32dfa0764f25451d99f94e1693498791',
+      'client_id': 'd8a56a73d93b427cad801116dc4d3188',
+      'client_secret': '2ac9b179f7e84be58bb901d6ed8bf374',
       'email': this.config.email,
       'encrypt': 'ciphertext',
       'grant_type': 'email-password',
-      'himei': 'faede31549d649f58864093158787ec9',
+      'himei': '463299817f794e52a228868167df3f34',
       'password': this.config.password,
       'scope': 'all',
     }, {
@@ -200,7 +206,7 @@ export class DreoAPI {
     await this.authenticate();
     // open websocket
     const url = `wss://wsb-${this.config.server}.dreo-cloud.com/websocket?accessToken=${this.auth?.access_token}&timestamp=${Date.now()}`;
-    this.config.logger.debug('Start web socket url:', url);
+    this.config.logger.debug('Start web socket...');
     this.webSocket = new ReconnectingWebSocket(url, [], { WebSocket: WebSocket });
   
     this.webSocket.addEventListener('error', error => {
@@ -245,10 +251,8 @@ export class DreoAPI {
     this.config.logger.debug('DreoAPI getDevices');
     await this.authenticate();
     let devices: Array<DreoDevice> = [];
-    await axios.get(`https://app-api-${this.config.server}.dreo-cloud.com/api/v2/user-device/device/list`, {
+    await axios.get(`https://app-api-${this.config.server}.dreo-cloud.com/api/user-device/device/list`, {
       params: {
-        'pageSize': 1000,
-        'currentPage': 1,
         'timestamp': Date.now(),
       },
       headers: {
