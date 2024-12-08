@@ -2,4 +2,5 @@
 node_modules/
 dist/
 config/config.json
-tests/node-repl.sh
+scripts/
+logs/

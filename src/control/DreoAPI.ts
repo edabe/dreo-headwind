@@ -4,6 +4,7 @@ import MD5 from 'crypto-js/md5';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import WebSocket from 'ws';
 import { Logger, ILogObj } from 'tslog';
+import EventEmitter from 'events';
 
 /**
  * DreoAPI is based heavily on https://github.com/zyonse/homebridge-dreo
@@ -106,6 +107,11 @@ export type DreoCommand = {
   lightsensoro?: boolean,
 }
 
+type StateCache = {
+  state: DreoState,
+  expiry: number,
+}
+
 // Typescript sleep
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -120,13 +126,16 @@ const DREO_API_CONFIG = {
 }
 
 // Follows same request structure as the mobile app
-export class DreoAPI {
+export class DreoAPI extends EventEmitter {
   private config: DreoConfig;
   private auth: DreoAuth | undefined;
   private webSocket: ReconnectingWebSocket | undefined;
   private webSocketTimer: NodeJS.Timeout;
+  private stateCache: StateCache | undefined;
+  private stateCacheDuration: 5000;
   
   constructor(options: DreoConfig) {
+    super();
     this.config = options;
     this.config.password = MD5(options.password).toString();
   }
@@ -209,16 +218,26 @@ export class DreoAPI {
     this.config.logger.debug('Start web socket...');
     this.webSocket = new ReconnectingWebSocket(url, [], { WebSocket: WebSocket });
   
-    this.webSocket.addEventListener('error', error => {
+    this.webSocket.addEventListener('error', (error) => {
       this.config.logger.debug('WebSocket Error', error);
+      this.emit('error', error);
     });
   
     this.webSocket.addEventListener('open', () => {
       this.config.logger.debug('WebSocket Opened');
+      this.emit('open');
     });
   
     this.webSocket.addEventListener('close', () => {
       this.config.logger.debug('WebSocket Closed');
+      this.emit('close');
+    });
+
+    this.webSocket.addEventListener('message', (message) => {
+      this.config.logger.debug('WebSocket Message');
+      // Reset state cache
+      if (this.stateCache) this.stateCache.expiry = 0;
+      this.emit('message', message);
     });
   
     // keep connection open by sending empty packet every 15 seconds
@@ -238,12 +257,21 @@ export class DreoAPI {
     await sleep(wait); // wait for the operation to complete
   }
 
-  public disconnect(): void {
-    this.config.logger.debug('DreoAPI disconnect');
+  public async disconnect(): Promise<void> {
+    this.config.logger.debug('DreoAPI disconnecting');
+    // Turn the fan off
     clearInterval(this.webSocketTimer);
+
+    const closePromise = new Promise<void>((resolve) => {
+      if (this.webSocket) this.webSocket.onclose = () => {
+        this.config.logger.debug('DreoAPI disconnected');
+        resolve();
+      };
+    })
     this.webSocket?.close();
     this.webSocket = undefined;
     this.auth = undefined;
+    return closePromise;
   }
 
   // Return device list
@@ -296,9 +324,14 @@ export class DreoAPI {
 
   // used to initialize power state, speed values on boot
   public async getState(serialNumber: string): Promise<DreoState|null> {
+    if (this.stateCache && Date.now() < this.stateCache.expiry) {
+      this.config.logger.debug('DreoAPI getState [cache]', serialNumber);
+      return this.stateCache.state;
+    }
+
     this.config.logger.debug('DreoAPI getState', serialNumber);
     await this.authenticate();
-    let state = null;
+    let state: DreoState | null = null;
     await axios.get(`https://app-api-${this.config.server}.dreo-cloud.com/api/user-device/device/state`, {
       params: {
         'deviceSn': serialNumber,
@@ -343,6 +376,9 @@ export class DreoAPI {
       this.config.logger.error('Error retrieving device state:', error);
       throw new Error('Unable to retrieve device state');
     });
+    if (state) {
+      this.stateCache = { expiry: Date.now() + this.stateCacheDuration, state: state };
+    }
     return state;
   }
 
@@ -363,7 +399,7 @@ export class DreoAPI {
     this.config.logger.debug('DreoAPI airCirculatorPowerOn', deviceSn, powerOn);
     const state = await this.getState(deviceSn);
     if (state?.poweron !== powerOn) {
-      await this.sendCommand(deviceSn, {'poweron': powerOn}, 0);
+      await this.sendCommand(deviceSn, {'poweron': powerOn}, 500);
     }
   }
 

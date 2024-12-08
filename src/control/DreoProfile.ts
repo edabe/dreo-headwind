@@ -10,6 +10,12 @@ import { DreoAPI, DreoCommand } from './DreoAPI';
 // Vertical 15 to 65
 // Cruise horizongal [0, 30]
 // Cruise vertical [30, 30]
+const oscMode = {
+    oscmode: 0
+} as DreoCommand;
+const fixedConf = {
+    fixedconf: '0,0'
+} as DreoCommand;
 
 export abstract class DreoProfile {
     protected name: string;
@@ -72,6 +78,8 @@ class Center45Degrees extends DreoProfile {
             oscmode: 0, // Set oscillation (equivalnt to AirCirculatorOscillation.NONE)
             windlevel: fanSpeed
         };
+        await dreoApi.airCirculatorCommand(serialNumber, oscMode);
+        await dreoApi.airCirculatorCommand(serialNumber, fixedConf);
         await dreoApi.airCirculatorCommand(serialNumber, template);
     }
 }
@@ -86,6 +94,8 @@ class Center30Degrees extends DreoProfile {
             oscmode: 0, // Set oscillation (equivalnt to AirCirculatorOscillation.NONE)
             windlevel: fanSpeed
         };
+        await dreoApi.airCirculatorCommand(serialNumber, oscMode);
+        await dreoApi.airCirculatorCommand(serialNumber, fixedConf);
         await dreoApi.airCirculatorCommand(serialNumber, template);
     }
 }
@@ -100,6 +110,8 @@ class Center0Degrees extends DreoProfile {
             oscmode: 0, // Set oscillation (equivalnt to AirCirculatorOscillation.NONE)
             windlevel: fanSpeed
         };
+        await dreoApi.airCirculatorCommand(serialNumber, oscMode);
+        await dreoApi.airCirculatorCommand(serialNumber, fixedConf);
         await dreoApi.airCirculatorCommand(serialNumber, template);
     }
 }

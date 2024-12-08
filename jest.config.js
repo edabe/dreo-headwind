@@ -6,4 +6,7 @@ module.exports = {
     '^.+\\.ts?$': 'ts-jest',
   },
   transformIgnorePatterns: ['<rootDir>/node_modules/'],
+  testPathIgnorePatterns: [
+    '.*/EndToEnd*'
+  ]
 };

@@ -14,8 +14,10 @@
     "axios": "^1.6.2",
     "axios-retry": "^4.0.0",
     "crypto-js": "^4.2.0",
+    "fs": "^0.0.1-security",
     "incyclist-ant-plus": "github:edabe/incyclist-ant-plus",
     "nconf": "^0.12.1",
+    "path": "^0.12.7",
     "reconnecting-websocket": "^4.4.0",
     "tslog": "^4.9.2",
     "ws": "^8.14.2"
