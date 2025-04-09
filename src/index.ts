@@ -70,6 +70,7 @@ export default class App {
     // Instantiate the Ant sensors to be used in the app
     private async setupSensors(channel: Channel): Promise<void> {
         const allowedDevices = nconf.get('ant.allowed_devices');
+        if (allowedDevices === undefined) throw new Error('Check config/config.json: ant.allowed_devices is undefined');
         Object.entries(allowedDevices).forEach(async (entry) => {
             const key = entry[0];
             const value = parseInt(entry[1] as string);
