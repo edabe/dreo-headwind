@@ -306,6 +306,7 @@ describe('AntConnection App Exit', () => {
         expect(mockExit).toHaveBeenCalledWith(0);
         
         expect(timeoutSpy).toHaveBeenCalledTimes(2);
+        timeoutSpy.mockRestore();
     });
 
     it('should clean up and exit gracefully on error', async () => {
@@ -328,6 +329,7 @@ describe('AntConnection App Exit', () => {
         expect(mockExit).toHaveBeenCalledWith(-1);
         
         expect(timeoutSpy).toHaveBeenCalledTimes(2);
+        timeoutSpy.mockRestore();
     });
 });
 
