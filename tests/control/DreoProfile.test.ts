@@ -1,13 +1,13 @@
-jest.mock('../../src/control/DreoAPI', () => {
+import { DreoProfileType, DreoProfiles } from '../../src/fan/DreoProfile';
+import { DreoAPI } from '../../src/fan/DreoAPI';
+
+jest.mock('../../src/fan/DreoAPI', () => {
     return {
         DreoAPI: jest.fn().mockImplementation(() => ({
         airCirculatorCommand: jest.fn().mockResolvedValue(true)
         }))
     };
 });
-
-import { DreoProfileType, DreoProfiles } from '../../src/control/DreoProfile';
-import { DreoAPI } from '../../src/control/DreoAPI';
 
 describe('DreoProfiles', () => {
     const serial = 'ABC123';

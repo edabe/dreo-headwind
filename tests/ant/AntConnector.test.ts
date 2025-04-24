@@ -4,7 +4,9 @@
  */
 import nconf from 'nconf';
 import * as path from 'path';
-import AntConnection from '../../src/ant/AntConnection'
+import { SwitchBotHub2 } from 'switchbot-hub2-ble';
+import { DreoAPI } from '../../src/fan/DreoAPI';
+import AntConnector from '../../src/ant/AntConnector'
 import { ILogObj, Logger } from 'tslog';
 import { Provider } from 'nconf';
 import { AntDevice, Channel, BicyclePowerSensor, HeartRateSensor, BicyclePowerSensorState, HeartRateSensorState, CadenceSensorState } from 'incyclist-ant-plus';
@@ -27,9 +29,27 @@ jest.mock('incyclist-ant-plus', () => {
     };
 });
 
-describe('AntConnection App Init', () => {
+jest.mock('switchbot-hub2-ble', () => ({
+    SwitchBotHub2: {
+        on: jest.fn(),
+        startScanning: jest.fn(),
+        stopScanning: jest.fn(),
+        isScanning: jest.fn()
+    }
+}));
+
+jest.mock('../../src/fan/DreoAPI', () => {
+    return {
+        DreoAPI: jest.fn().mockImplementation(() => ({
+            airCirculatorPowerOn: jest.fn(),
+            disconnect: jest.fn()
+        }))
+    };
+});
+
+describe('AntConnector App Init', () => {
     let mockLogger: Logger<ILogObj>;
-    let antConn: AntConnection;
+    let antConn: AntConnector;
 
     beforeEach(() => {
         // Load configuration file
@@ -42,15 +62,23 @@ describe('AntConnection App Init', () => {
             warn: jest.fn(),
             error: jest.fn(),
         } as unknown as Logger<ILogObj>;
-
-        antConn = new AntConnection(mockLogger, nconf);
+        antConn = new AntConnector(mockLogger, nconf);
     });
 
     afterEach(() => {
         jest.clearAllMocks();
         nconf.reset();
+        // Remove all handlers that were added in AntConnector constructor
+        process.removeAllListeners('SIGINT');
+        process.removeAllListeners('SIGQUIT');
+        process.removeAllListeners('SIGTERM');
+        process.removeAllListeners('unhandledRejection');
+        (SwitchBotHub2.on as jest.Mock).mockReset();
+        (SwitchBotHub2.startScanning as jest.Mock).mockReset();
+        (SwitchBotHub2.stopScanning as jest.Mock).mockReset();
+        (SwitchBotHub2.isScanning as jest.Mock).mockReset();
     });
-
+    
     it('should initialize with logger and allowed devices', () => {
         expect(antConn).toBeDefined();
         expect(antConn['allowedDevices']).toEqual({
@@ -131,7 +159,7 @@ describe('AntConnection App Init', () => {
         expect(antConn['activeProfiles'].get(hrProfile)).toBeDefined();
     
         // Assert app is on standby
-        expect(mockLogger.info).toHaveBeenCalledWith('Data handler switching to standby');
+        expect(mockLogger.info).toHaveBeenCalledWith('Performance handler switching to standby');
 
         // Act
         jest.advanceTimersByTime(10000);
@@ -170,27 +198,27 @@ describe('AntConnection App Init', () => {
             } as CadenceSensorState
         }
     
-        antConn['cachedDataType'].powerCount = 0;
-        antConn['cachedDataType'].beatCount = 0;
-        antConn['cachedDataType'].cadenceCount = 0;
+        antConn['cachedPerfDataType'].powerCount = 0;
+        antConn['cachedPerfDataType'].beatCount = 0;
+        antConn['cachedPerfDataType'].cadenceCount = 0;
     
         // Handle power data
         antConn['onData'](pwrData.profile, pwrData.deviceId, pwrData.data);
     
-        expect(antConn['cachedDataType'].powerCount).toBe(1);
-        expect(antConn['cachedDataType'].averagePower).toBe(150);
+        expect(antConn['cachedPerfDataType'].powerCount).toBe(1);
+        expect(antConn['cachedPerfDataType'].averagePower).toBe(150);
 
         // Handle heartrate data
         antConn['onData'](hrData.profile, hrData.deviceId, hrData.data);
     
-        expect(antConn['cachedDataType'].beatCount).toBe(1);
-        expect(antConn['cachedDataType'].heartRate).toBe(165);
+        expect(antConn['cachedPerfDataType'].beatCount).toBe(1);
+        expect(antConn['cachedPerfDataType'].heartRate).toBe(165);
 
         // Handle cadence data
         antConn['onData'](cadData.profile, cadData.deviceId, cadData.data);
     
-        expect(antConn['cachedDataType'].cadenceCount).toBe(1);
-        expect(antConn['cachedDataType'].cadence).toBe(95);
+        expect(antConn['cachedPerfDataType'].cadenceCount).toBe(1);
+        expect(antConn['cachedPerfDataType'].cadence).toBe(95);
     });
 
     it('should discard data when event is duplicated', () => {
@@ -219,7 +247,7 @@ describe('AntConnection App Init', () => {
             } as CadenceSensorState
         }
     
-        const cache = antConn['cachedDataType'];
+        const cache = antConn['cachedPerfDataType'];
         cache.powerCount = 1;
         cache.averagePower = 0;
         cache.beatCount = 1;
@@ -230,28 +258,126 @@ describe('AntConnection App Init', () => {
         // Handle power data
         antConn['onData'](pwrData.profile, pwrData.deviceId, pwrData.data);
     
-        expect(antConn['cachedDataType'].powerCount).toBe(1);
-        expect(antConn['cachedDataType'].averagePower).toBe(0);
+        expect(antConn['cachedPerfDataType'].powerCount).toBe(1);
+        expect(antConn['cachedPerfDataType'].averagePower).toBe(0);
         expect(mockLogger.debug).toHaveBeenCalledWith(expect.stringContaining('Ignoring Power data handler'));
 
         // Handle heartrate data
         antConn['onData'](hrData.profile, hrData.deviceId, hrData.data);
     
-        expect(antConn['cachedDataType'].beatCount).toBe(1);
-        expect(antConn['cachedDataType'].heartRate).toBe(0);
+        expect(antConn['cachedPerfDataType'].beatCount).toBe(1);
+        expect(antConn['cachedPerfDataType'].heartRate).toBe(0);
         expect(mockLogger.debug).toHaveBeenCalledWith(expect.stringContaining('Ignoring HR data handler'));
 
         // Handle cadence data
         antConn['onData'](cadData.profile, cadData.deviceId, cadData.data);
     
-        expect(antConn['cachedDataType'].cadenceCount).toBe(1);
-        expect(antConn['cachedDataType'].cadence).toBe(0);
+        expect(antConn['cachedPerfDataType'].cadenceCount).toBe(1);
+        expect(antConn['cachedPerfDataType'].cadence).toBe(0);
         expect(mockLogger.debug).toHaveBeenCalledWith(expect.stringContaining('Ignoring Cadence data handler'));
     });
+
+    it('should start BLE sampling when data is active', async () => {
+        const sbconfig = nconf.get('switchbot.config');
+        const options = {
+            mac: sbconfig?.bleMac,
+            interval: sbconfig?.interval,
+            duration: sbconfig?.duration
+        }
+
+        jest.useFakeTimers();
+        // Simulate ANT+ profile detection to trigger environment scanner
+        antConn['activeProfiles'].set('PWR', setTimeout(() => {}, 60000));
+        antConn['activeProfiles'].set('HR', setTimeout(() => {}, 60000));
+
+        // Call onDetected to trigger BLE scanner
+        antConn['onDetected']('PWR', 12345);
+
+        expect(SwitchBotHub2.startScanning).toHaveBeenCalledWith(options);
+        jest.advanceTimersByTime(70000);
+    });
+      
+    it('should stop BLE sampling on standby', async () => {      
+        jest.useFakeTimers();
+
+        // Simulate ANT+ profile detection to trigger environment scanner
+        antConn['activeProfiles'].set('PWR', setTimeout(() => {}, 60000));
+        antConn['activeProfiles'].set('HR', setTimeout(() => {}, 60000));
+            
+        antConn['onDetected']('PWR', 12345);
+        expect(SwitchBotHub2.startScanning).toHaveBeenCalled();
+      
+        // Mark one profile as inactive
+        antConn['activeProfiles'].set('PWR', undefined);
+      
+        await antConn['dataHandlerStandBy']();
+      
+        expect(SwitchBotHub2.stopScanning).toHaveBeenCalled(); // Verifies stopScanning() was invoked
+        jest.advanceTimersByTime(70000);
+    });
+
+    it('should cache BLE data on "data" event', () => {
+        const sampleData = {
+            temperatureC: 21.3,
+            temperatureF: 70.3,
+            humidityPercent: 42.1
+        };
+    
+        // Manually invoke the 'data' listener from SwitchBotHub2
+        const onSpy = jest.spyOn(SwitchBotHub2, 'on');
+        const handler = onSpy.mock.calls.find(call => call[0] === 'data')?.[1];
+        
+        expect(handler).toBeDefined();
+        handler?.(sampleData);
+    
+        expect(antConn['cachedEnvDataType'].temperatureC).toBe(sampleData.temperatureC);
+        expect(antConn['cachedEnvDataType'].temperatureF).toBe(sampleData.temperatureF);
+        expect(antConn['cachedEnvDataType'].humidityPercent).toBe(sampleData.humidityPercent);
+    });
+    
+    it('should NOT start BLE scan if only one sensor is active', () => {
+        jest.useFakeTimers();
+
+        antConn['activeProfiles'].set('PWR', setTimeout(() => {}, 60000));
+        antConn['activeProfiles'].set('HR', undefined); // Only one active
+    
+        antConn['onDetected']('PWR', 12345);
+    
+        expect(SwitchBotHub2.startScanning).not.toHaveBeenCalled();
+        jest.advanceTimersByTime(70000);
+    });
+
+    it('should not crash when BLE data is incomplete', () => {
+        const handler = jest.spyOn(SwitchBotHub2, 'on').mock.calls.find(c => c[0] === 'data')?.[1];
+        expect(() => handler?.({})).not.toThrow(); // shouldn't crash
+    });
+    
+
+    it('should not call startScanning again if already running', () => {
+        jest.useFakeTimers();
+
+        const isScanningMock = SwitchBotHub2.isScanning as jest.Mock;
+        
+        antConn['activeProfiles'].set('PWR', setTimeout(() => {}, 60000));
+        antConn['activeProfiles'].set('HR', setTimeout(() => {}, 60000));
+    
+        // First trigger
+        antConn['onDetected']('PWR', 12345);
+        expect(SwitchBotHub2.startScanning).toHaveBeenCalledTimes(1);
+
+        // Simulate that scanning is already in progress
+        isScanningMock.mockReturnValue(true);
+
+        // Second trigger — should not call again
+        antConn['onDetected']('HR', 23456);
+        expect(SwitchBotHub2.startScanning).toHaveBeenCalledTimes(1);
+        jest.advanceTimersByTime(70000);
+    });
+    
 });
 
-describe('AntConnection App Exit', () => {
-    let antConn: AntConnection;
+describe('AntConnector App Exit', () => {
+    let antConn: AntConnector;
     let mockExit: jest.Mock;
     let mockLogger: Logger<ILogObj>;
 
@@ -270,7 +396,7 @@ describe('AntConnection App Exit', () => {
         const AntDeviceMock = AntDevice as jest.MockedClass<typeof AntDevice>;
         AntDeviceMock.mockClear();
         
-        antConn = new AntConnection(mockLogger, nconf);
+        antConn = new AntConnector(mockLogger, nconf);
         const antDeviceInstance = new AntDeviceMock();  // This should give the mocked instance
         antConn['ant'] = antDeviceInstance;
         antConn['processExit'] = mockExit as unknown as (code?: number) => never;
@@ -284,6 +410,15 @@ describe('AntConnection App Exit', () => {
     afterEach(() => {
         mockExit.mockRestore();
         nconf.reset();
+        // Remove all handlers that were added in AntConnector constructor
+        process.removeAllListeners('SIGINT');
+        process.removeAllListeners('SIGQUIT');
+        process.removeAllListeners('SIGTERM');
+        process.removeAllListeners('unhandledRejection');
+        (SwitchBotHub2.on as jest.Mock).mockReset();
+        (SwitchBotHub2.startScanning as jest.Mock).mockReset();
+        (SwitchBotHub2.stopScanning as jest.Mock).mockReset();
+        (SwitchBotHub2.isScanning as jest.Mock).mockReset();
         jest.useRealTimers();
     });
 
@@ -330,6 +465,14 @@ describe('AntConnection App Exit', () => {
         
         expect(timeoutSpy).toHaveBeenCalledTimes(2);
         timeoutSpy.mockRestore();
+    });
+
+    it('should NOT call stopScanning if BLE config is undefined', async () => {
+        antConn['switchbotOptions'] = undefined;
+    
+        expect(SwitchBotHub2.stopScanning).not.toHaveBeenCalled();
+        await expect(antConn['onAppExit']()).rejects.toThrow();
+        expect(SwitchBotHub2.stopScanning).not.toHaveBeenCalled();
     });
 });
 

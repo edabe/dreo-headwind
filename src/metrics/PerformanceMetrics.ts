@@ -1,6 +1,6 @@
 import { ILogObj, Logger } from "tslog";
 import { Provider } from "nconf";
-import { PerformanceData, PowerData, HeartRateData, CadenceData, EventData } from "../handler/PerformanceHandler";
+import { PerformanceData, PowerData, HeartRateData, CadenceData, EventData } from "../handler/DataHandler";
 
 type UserData = {
     hrZones: number[][],
@@ -215,17 +215,18 @@ export default class PerformanceMetrics {
 
     public onDataHandler(data: EventData): void {
         const now = performance.now();
-        if (data.averagePower && !isNaN(data.averagePower)) { // Skip if power data is not available
+        if (data.averagePower !== undefined && !isNaN(data.averagePower)) { // Skip if power data is not available
             // Check if this is the beginning of a series
             if (!this.power.normalizedStartTime) this.power.normalizedStartTime = now;
             // Accumulate power data
             this.accumulatePower(data.averagePower, now);
         }
-        else if (data.heartRate && !isNaN(data.heartRate)) { // Skip if heart rate is not available
+        if (data.heartRate !== undefined && !isNaN(data.heartRate)) { // Skip if heart rate is not available
             // Accumulate heart rate data
             this.accumulateHeartRate(data.heartRate, now);
         }
-        else if (data.cadence && !isNaN(data.cadence)) { // Skip if cadence is not available
+        
+        if (data.cadence !== undefined && !isNaN(data.cadence)) { // Skip if cadence is not available
             // Accumulate cadence data
             this.accumulateCadence(data.cadence);
         }

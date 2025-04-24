@@ -1,7 +1,7 @@
 import nconf from 'nconf';
 import path from 'path';
 import { ILogObj, Logger } from 'tslog';
-import AntConnection from './ant/AntConnection';
+import AntConnector from './ant/AntConnector';
 
 const logger = new Logger<ILogObj>({ name: 'ANT App' });
 
@@ -24,7 +24,7 @@ try {
     logger.info(`Configuration loaded successfully from ${configPath}`);
 
     // Start ANT connection
-    const antConn = new AntConnection(logger, nconf);
+    const antConn = new AntConnector(logger, nconf);
     antConn.startApp();
 } catch (err) {
     logger.fatal('Failed to start application:', err);

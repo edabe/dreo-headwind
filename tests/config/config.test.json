@@ -6,6 +6,12 @@
         "serialNumber": "3044245828720666002-8e66e6726eb7f04c:001:0000000000s"
     },
 
+    "switchbot.config": {
+        "interval": 10000,
+        "duration": 1000,
+        "bleMac": "C9:16:5C:55:51:78"
+    },
+
     "ant.allowed_devices": {
         "pwr": "46683",
         "fe": "46683",

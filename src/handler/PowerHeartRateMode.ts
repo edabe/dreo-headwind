@@ -1,8 +1,8 @@
 import { ILogObj, Logger } from 'tslog';
 import { Provider } from 'nconf';
-import { DreoAPI } from '../control/DreoAPI';
-import { DreoProfileType, DreoProfiles } from '../control/DreoProfile';
-import { PerformanceHandler, PerformanceData } from './PerformanceHandler';
+import { DreoAPI } from '../fan/DreoAPI';
+import { DreoProfileType, DreoProfiles } from '../fan/DreoProfile';
+import { DataHandler, PerformanceData } from './DataHandler';
 import DataSmoother from '../utils/DataSmoother';
 
 /**
@@ -55,7 +55,7 @@ import DataSmoother from '../utils/DataSmoother';
  * 
  * The logic in this class was implemented with help from ChatGPT.
  */
-export default class PowerHeartRateMode implements PerformanceHandler {
+export default class PowerHeartRateMode implements DataHandler {
     private logger: Logger<ILogObj>;
     private dreo: DreoAPI;
     private dreoSerialNumber: string;
@@ -115,12 +115,12 @@ export default class PowerHeartRateMode implements PerformanceHandler {
         this.pwrWeight = pwrWeight;
 
         // Set fan oscillating override frequency
-        this.oscillationLastUpdate = Date.now();
+        this.oscillationLastUpdate = performance.now();
         this.oscillationFrequency = modeconfig.oscillationFrequency;
         this.oscillationDuration = modeconfig.oscillationDuration;
 
         // Set fan profile update frequency
-        this.modeLastUpdate = Date.now();
+        this.modeLastUpdate = performance.now();
         this.modeUpdateFrequency = modeconfig.updateFrequency || 5000;
 
         const hrconfig = nconf.get('user.heartrate');
@@ -280,12 +280,12 @@ export default class PowerHeartRateMode implements PerformanceHandler {
         this.smoothHeartRate.add(data.heartRate as number);
         this.smoothPower.add(data.averagePower as number);
 
-        const now = Date.now();
-        if (now - this.modeLastUpdate > this.modeUpdateFrequency) {
+        const now = performance.now();
+        if (now - this.modeLastUpdate >= this.modeUpdateFrequency) {
             // This callback must execute fast so it should not wait for 'adjustFanProfile'
             // The 'isDreoBusy' ensures that the function is not called multiple times
             /* await */ this.adjustFanProfile(now);
-            this.modeLastUpdate = Date.now();
+            this.modeLastUpdate = now;
         }
     } 
 
@@ -296,7 +296,7 @@ export default class PowerHeartRateMode implements PerformanceHandler {
         // Clean up timers
         this.logger.info(`Cleaning up PowerHeartRateMode...`);
         // set `modeLastUpdate` to avoid any calls to `adjustFanProfile` after cleanup
-        this.modeLastUpdate = Date.now();
+        this.modeLastUpdate = performance.now();
         await this.dreo.airCirculatorPowerOn(this.dreoSerialNumber, false);
         await this.dreo.disconnect();
     }

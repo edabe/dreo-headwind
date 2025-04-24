@@ -2,23 +2,24 @@ import { AntDevice, BicyclePowerSensor, BicyclePowerSensorState, CadenceSensor, 
 import { SensorState } from 'incyclist-ant-plus/lib/sensors/base-sensor';
 import { Provider } from 'nconf';
 import { ILogObj, Logger } from 'tslog';
-import { EventData, PerformanceData, PerformanceHandler } from '../handler/PerformanceHandler';
+import { EventData, DataHandler, EnvironmentData } from '../handler/DataHandler';
+import { SwitchBotHub2 } from 'switchbot-hub2-ble';
 import PerformanceMetrics from '../metrics/PerformanceMetrics';
 import PowerHeartRateMode from '../handler/PowerHeartRateMode';
 
 /**
- * Extends DataType with ANT specific properties
+ * Augments EventData with ANT specific properties to detect duplicate events
  */
-type AntDataType = EventData & {
+type AppEventData = EventData & {
     beatCount: number;
     powerCount: number;
     cadenceCount: number;
 }
 
 /**
- * Implements the ANT connection logic.
+ * Implements the ANT Connector logic.
  */
-export default class AntConnection {
+export default class AntConnector {
     // Logger instance
     protected logger: Logger<ILogObj>;
 
@@ -32,14 +33,18 @@ export default class AntConnection {
     // Track active devices based on elapsed time
     private activeProfiles = new Map<string, NodeJS.Timeout | undefined>();
 
-    // The Data Handler to be used
-    private performanceHandlers: PerformanceHandler[];
+    // The Performance Handler to be used
+    private performanceHandlers: DataHandler[];
 
     // The cached data type
-    private cachedDataType: AntDataType = { beatCount: 0, powerCount: 0, cadenceCount: 0 };
+    private cachedPerfDataType: AppEventData = { beatCount: 0, powerCount: 0, cadenceCount: 0 };
+    private cachedEnvDataType: EnvironmentData = { temperatureC: 0, temperatureF: 0, humidityPercent: 0 };
 
     // The performance metrics
     private performanceMetrics: PerformanceMetrics;
+
+    // SwitchBot Hub2 integration
+    private switchbotOptions: object | undefined;
 
     /**
      * Class constructor
@@ -55,8 +60,24 @@ export default class AntConnection {
 
         // Fan handler
         const fanHandler = new PowerHeartRateMode(logger, nconf);
-        // Data handler array - performance metric benefits from being first
+        // Performance handler array - performance metric benefits from being first
         this.performanceHandlers = [ fanHandler ];
+
+        // Check if SwitchBot integration is enabled
+        const sbconfig = nconf.get('switchbot.config');
+        if (sbconfig !== undefined) {
+            // Configure SwitchBot integration
+            this.switchbotOptions = {
+                mac: sbconfig?.bleMac,
+                interval: sbconfig?.interval || 15000,
+                duration: sbconfig?.duration || 500
+            }
+            SwitchBotHub2.on('data', (data) => {
+                this.cachedEnvDataType.temperatureC = data.temperatureC;
+                this.cachedEnvDataType.temperatureF = data.temperatureF;
+                this.cachedEnvDataType.humidityPercent = data.humidityPercent;
+            });
+        }
 
         // Bind event handler to this in order to set the right context
         this.onDetected = this.onDetected.bind(this);
@@ -164,6 +185,11 @@ export default class AntConnection {
             this.activeProfiles.set(profile, undefined);
             this.dataHandlerStandBy();
         }, 60000));
+
+        // Start BLE environment scanner
+        if (this.shouldHandleData() && this.switchbotOptions !== undefined && !SwitchBotHub2.isScanning()) {
+            SwitchBotHub2.startScanning(this.switchbotOptions);
+        }
     }
     
     /**
@@ -183,11 +209,11 @@ export default class AntConnection {
                 const eventCount = (data as BicyclePowerSensorState)._0x10_EventCount as number;
 
                 // Check if power message is repeated or corrupted
-                if (isNaN(power) || eventCount === this.cachedDataType.powerCount) {
+                if (isNaN(power) || eventCount === this.cachedPerfDataType.powerCount) {
                     this.logger.debug(`Ignoring Power data handler: ${power} / ${eventCount}`);
                 } else {
-                    this.cachedDataType.powerCount = eventCount;
-                    this.cachedDataType.averagePower = power;
+                    this.cachedPerfDataType.powerCount = eventCount;
+                    this.cachedPerfDataType.averagePower = power;
                 }
                 break;
             }           
@@ -199,11 +225,11 @@ export default class AntConnection {
                 const eventCount = (data as CadenceSensorState).CumulativeCadenceRevolutionCount;
 
                 // Check if cadence message is repeated or corrupted
-                if (isNaN(cadence) || eventCount === this.cachedDataType.cadenceCount) {
+                if (isNaN(cadence) || eventCount === this.cachedPerfDataType.cadenceCount) {
                     this.logger.debug(`Ignoring Cadence data handler: ${cadence} / ${eventCount}`);
                 } else {
-                    this.cachedDataType.cadenceCount = eventCount;
-                    this.cachedDataType.cadence = cadence;
+                    this.cachedPerfDataType.cadenceCount = eventCount;
+                    this.cachedPerfDataType.cadence = cadence;
                 }
                 break;
             }
@@ -213,11 +239,11 @@ export default class AntConnection {
                 const eventCount = (data as HeartRateSensorState).BeatCount;
 
                 // Check if HR message is repeated or corrupted
-                if (isNaN(heartRate) || eventCount === this.cachedDataType.beatCount) {
+                if (isNaN(heartRate) || eventCount === this.cachedPerfDataType.beatCount) {
                     this.logger.debug(`Ignoring HR data handler: ${heartRate} / ${eventCount}`);
                 } else {
-                    this.cachedDataType.beatCount = eventCount;
-                    this.cachedDataType.heartRate = heartRate;
+                    this.cachedPerfDataType.beatCount = eventCount;
+                    this.cachedPerfDataType.heartRate = heartRate;
                 }
                 break;
             }
@@ -227,21 +253,27 @@ export default class AntConnection {
 
         // Only process data if the PWR and HR sensors are active 
         if (this.shouldHandleData()) {
-            this.performanceMetrics.onDataHandler(this.cachedDataType);
-//            this.dataHandlers.forEach(handler => handler.onDataHandler(this.cachedDataType));
+            this.performanceMetrics.onDataHandler(this.cachedPerfDataType as EventData);
+            const perfData = this.performanceMetrics.getPerformanceData();
+            this.performanceHandlers.forEach(handler => handler.onPerformanceHandler(perfData, this.cachedEnvDataType));
         }
     }
 
     /**
-     * Implements the logic to switch the data handler into standby mode
+     * Implements the logic to switch the performance handler into standby mode
      */
     private async dataHandlerStandBy(): Promise<void> {
         // Clean up data handler if at least one of the detected devices is inactive
         if (!this.shouldHandleData()) {
             // End logging session
             // await this.antLogger.endSession();
-            this.logger.info('Data handler switching to standby');
-//            this.dataHandlers.forEach(async (handler) => await handler.cleanUp());
+            this.logger.info('Performance handler switching to standby');
+            for (const handler of this.performanceHandlers) {
+                await handler.cleanUp();
+            }
+
+            // Stop BLE environment scanner
+            if (this.switchbotOptions !== undefined) SwitchBotHub2.stopScanning();
         }
     }
 
@@ -269,6 +301,9 @@ export default class AntConnection {
      * Clean up for app exit
      */
     protected async onAppExit(error?: Error) {
+        // Stop sampling environment data
+        if (this.switchbotOptions !== undefined) SwitchBotHub2.stopScanning();
+
         const timerId = setTimeout(() => { throw new Error('Error: timeout trying to exit the app')}, 20000);
         let retCode = 0;
         try {

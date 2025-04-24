@@ -26,6 +26,12 @@ export type PerformanceData = PowerData & HeartRateData & CadenceData & {
     trainingStressScore: number
 }
 
+export type EnvironmentData = {
+    temperatureC: number,
+    temperatureF: number,
+    humidityPercent: number
+}
+
 export type EventData = {
     cadence?: number;
     heartRate?: number;
@@ -33,23 +39,25 @@ export type EventData = {
 }
 
 /**
- * Declares the public interface that defines a performance data handler.
+ * Declares the public interface that defines a data handler that controls the fan
+ * or other device.
  * 
- * ANT device data handlers process PerformanceData types.
+ * The handler will receive physiology data (HR, power, cadnece) as well as 
+ * environment data (temperature, humidity).
  */
-export abstract class PerformanceHandler {
+export abstract class DataHandler {
     /**
-     * The performance event handler.
-     * This callback will be called for every performance event emitted by the 
-     * performance event emitter.
+     * The data event handler.
+     * This function will be called approximately every second.
      * 
-     * @param data The object containing the data to be processed.
+     * @param performance The object containing physiology data.
+     * @param environment The object containing environment data.
      */
-    public abstract onPerformanceHandler(data: PerformanceData): void;
+    public abstract onPerformanceHandler(performance: PerformanceData, environment: EnvironmentData): void;
 
     /**
      * Cleanup function.
-     * This should implement the asynchronous logic to clean up and reset the data handler
+     * This should implement the asynchronous logic to clean up and reset the data handler.
      */
     public abstract cleanUp(): Promise<void>;
 }
