@@ -2,8 +2,8 @@ import { AntDevice, BicyclePowerSensor, BicyclePowerSensorState, CadenceSensor, 
 import { SensorState } from 'incyclist-ant-plus/lib/sensors/base-sensor';
 import { Provider } from 'nconf';
 import { ILogObj, Logger } from 'tslog';
-import { EventData, PerformanceHandler, EnvironmentData } from '../handler/DataHandler';
 import { SwitchBotHub2 } from 'switchbot-hub2-ble';
+import { EventData, PerformanceHandler, EnvironmentData } from '../handler/DataHandler';
 import PerformanceMetrics from '../handler/PerformanceMetrics';
 import PowerHeartRateMode from '../handler/PowerHeartRateMode';
 
