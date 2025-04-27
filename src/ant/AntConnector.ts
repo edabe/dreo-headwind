@@ -2,9 +2,9 @@ import { AntDevice, BicyclePowerSensor, BicyclePowerSensorState, CadenceSensor, 
 import { SensorState } from 'incyclist-ant-plus/lib/sensors/base-sensor';
 import { Provider } from 'nconf';
 import { ILogObj, Logger } from 'tslog';
-import { EventData, DataHandler, EnvironmentData } from '../handler/DataHandler';
+import { EventData, PerformanceHandler, EnvironmentData } from '../handler/DataHandler';
 import { SwitchBotHub2 } from 'switchbot-hub2-ble';
-import PerformanceMetrics from '../metrics/PerformanceMetrics';
+import PerformanceMetrics from '../handler/PerformanceMetrics';
 import PowerHeartRateMode from '../handler/PowerHeartRateMode';
 
 /**
@@ -34,7 +34,7 @@ export default class AntConnector {
     private activeProfiles = new Map<string, NodeJS.Timeout | undefined>();
 
     // The Performance Handler to be used
-    private performanceHandlers: DataHandler[];
+    private performanceHandlers: PerformanceHandler[];
 
     // The cached data type
     private cachedPerfDataType: AppEventData = { beatCount: 0, powerCount: 0, cadenceCount: 0 };
@@ -253,7 +253,7 @@ export default class AntConnector {
 
         // Only process data if the PWR and HR sensors are active 
         if (this.shouldHandleData()) {
-            this.performanceMetrics.onDataHandler(this.cachedPerfDataType as EventData);
+            this.performanceMetrics.onEventHandler(this.cachedPerfDataType as EventData);
             const perfData = this.performanceMetrics.getPerformanceData();
             this.performanceHandlers.forEach(handler => handler.onPerformanceHandler(perfData, this.cachedEnvDataType));
         }
@@ -320,13 +320,17 @@ export default class AntConnector {
                 this.logger.info('Cleaning up active profile: ', key);
                 clearTimeout(value);
             }
+            this.logger.info('Cleaning up performance handlers');
+            for (const pHandler of this.performanceHandlers) {
+                await pHandler.cleanUp();
+            }
+            this.logger.info('Cleaning up performance metrics');
+            await this.performanceMetrics.cleanUp();
         } catch (err) {
             clearTimeout(timerId);
             this.logger.error(err);
             retCode = -1;
         } finally {
-            this.logger.info('Cleaning up dataHandlers');
- //           this.dataHandlers.forEach(async (handler) => await handler.cleanUp());
             this.logger.info('Closing ANT logger');
             // await this.antLogger.endSession();
             clearTimeout(timerId);

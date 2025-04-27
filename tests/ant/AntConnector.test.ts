@@ -431,7 +431,8 @@ describe('AntConnector App Exit', () => {
         // Verify cleanup and logging
         expect(mockLogger.info).toHaveBeenCalledWith('Exiting application');
         expect(mockLogger.info).toHaveBeenCalledWith('Cleaning up active profile: ', 'PWR');
-        expect(mockLogger.info).toHaveBeenCalledWith('Cleaning up dataHandlers');
+        expect(mockLogger.info).toHaveBeenCalledWith('Cleaning up performance handlers');
+        expect(mockLogger.info).toHaveBeenCalledWith('Cleaning up performance metrics');
         
         // Verify closing of ANT device
         const antDeviceInstance = antConn['ant'];
@@ -454,7 +455,8 @@ describe('AntConnector App Exit', () => {
         // Verify cleanup and logging
         expect(mockLogger.info).toHaveBeenCalledWith('Application exiting due to error:', error);
         expect(mockLogger.info).toHaveBeenCalledWith('Cleaning up active profile: ', 'PWR');
-        expect(mockLogger.info).toHaveBeenCalledWith('Cleaning up dataHandlers');
+        expect(mockLogger.info).toHaveBeenCalledWith('Cleaning up performance handlers');
+        expect(mockLogger.info).toHaveBeenCalledWith('Cleaning up performance metrics');
         
         // Verify closing of ANT device
         const antDeviceInstance = antConn['ant'];

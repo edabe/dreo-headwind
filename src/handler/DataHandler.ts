@@ -39,21 +39,42 @@ export type EventData = {
 }
 
 /**
- * Declares the public interface that defines a data handler that controls the fan
- * or other device.
+ * Declares the public interface that defines a performance data handler.
  * 
  * The handler will receive physiology data (HR, power, cadnece) as well as 
  * environment data (temperature, humidity).
  */
-export abstract class DataHandler {
+export abstract class PerformanceHandler {
     /**
-     * The data event handler.
-     * This function will be called approximately every second.
+     * The performance data handler.
+     * AntConnector will call this function approximately once every second.
      * 
      * @param performance The object containing physiology data.
      * @param environment The object containing environment data.
      */
     public abstract onPerformanceHandler(performance: PerformanceData, environment: EnvironmentData): void;
+
+    /**
+     * Cleanup function.
+     * This should implement the asynchronous logic to clean up and reset the data handler.
+     */
+    public abstract cleanUp(): Promise<void>;
+}
+
+/**
+ * Declares the public interface that defines a sensor event handler.
+ * 
+ * The handler will receive aggregated data from the heart rate, power meter and cadence
+ * ANT sensors (HR, Power and Cadence profiles).
+ */
+export abstract class SensorHandler {
+    /**
+     * The event data handler from ANT sensors.
+     * AntConnector will call this function approximately 4 times every second.
+     * 
+     * @param event The aggregated ANT sensor data (HR, Power and Cadence profiles).
+     */
+    public abstract onEventHandler(event: EventData): void;
 
     /**
      * Cleanup function.

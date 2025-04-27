@@ -1,7 +1,7 @@
 import { AntDevice, Channel, BicyclePowerSensorState, HeartRateSensorState, CadenceSensorState } from 'incyclist-ant-plus';
 import { SwitchBotHub2 } from 'switchbot-hub2-ble';
 import AntConnector from '../../src/ant/AntConnector';
-import { DataHandler, EnvironmentData, PerformanceData } from '../../src/handler/DataHandler';
+import { PerformanceHandler, EnvironmentData, PerformanceData } from '../../src/handler/DataHandler';
 import { Logger, ILogObj } from 'tslog';
 import nconf from 'nconf';
 import path from 'path';
@@ -15,10 +15,10 @@ jest.mock('switchbot-hub2-ble', () => ({
   }
 }));
 
-describe('AntConnector DataHandler Integration', () => {
+describe('AntConnector AntHandler Integration', () => {
   let antConn: AntConnector;
   let mockLogger: Logger<ILogObj>;
-  let mockHandler: DataHandler;
+  let mockHandler: PerformanceHandler;
   const mockPerformanceData: PerformanceData = {
     power: 150,
     powerMax: 250,

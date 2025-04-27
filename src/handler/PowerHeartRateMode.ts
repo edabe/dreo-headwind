@@ -2,7 +2,7 @@ import { ILogObj, Logger } from 'tslog';
 import { Provider } from 'nconf';
 import { DreoAPI } from '../fan/DreoAPI';
 import { DreoProfileType, DreoProfiles } from '../fan/DreoProfile';
-import { DataHandler, PerformanceData } from './DataHandler';
+import { PerformanceHandler, PerformanceData } from './DataHandler';
 import DataSmoother from '../utils/DataSmoother';
 
 /**
@@ -55,7 +55,7 @@ import DataSmoother from '../utils/DataSmoother';
  * 
  * The logic in this class was implemented with help from ChatGPT.
  */
-export default class PowerHeartRateMode implements DataHandler {
+export default class PowerHeartRateMode implements PerformanceHandler {
     private logger: Logger<ILogObj>;
     private dreo: DreoAPI;
     private dreoSerialNumber: string;

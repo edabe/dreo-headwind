@@ -1,6 +1,6 @@
 import { ILogObj, Logger } from "tslog";
 import { Provider } from "nconf";
-import { PerformanceData, PowerData, HeartRateData, CadenceData, EventData } from "../handler/DataHandler";
+import { SensorHandler, PerformanceData, PowerData, HeartRateData, CadenceData, EventData } from "./DataHandler";
 
 type UserData = {
     hrZones: number[][],
@@ -41,7 +41,7 @@ type CadenceDataApp = CadenceData & {
     cumulativeCadSize: number
 }
 
-export default class PerformanceMetrics {
+export default class PerformanceMetrics implements SensorHandler {
     // Logger property
     private logger: Logger<ILogObj>;
     // User data
@@ -213,7 +213,7 @@ export default class PerformanceMetrics {
         };
     }
 
-    public onDataHandler(data: EventData): void {
+    public onEventHandler(data: EventData): void {
         const now = performance.now();
         if (data.averagePower !== undefined && !isNaN(data.averagePower)) { // Skip if power data is not available
             // Check if this is the beginning of a series
