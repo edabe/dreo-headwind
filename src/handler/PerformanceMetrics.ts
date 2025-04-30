@@ -213,7 +213,7 @@ export default class PerformanceMetrics implements SensorHandler {
         };
     }
 
-    public onEventHandler(data: EventData): void {
+    public onEventData(data: EventData): void {
         const now = performance.now();
         if (data.averagePower !== undefined && !isNaN(data.averagePower)) { // Skip if power data is not available
             // Check if this is the beginning of a series

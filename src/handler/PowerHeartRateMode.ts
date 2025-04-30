@@ -130,7 +130,7 @@ export default class PowerHeartRateMode implements PerformanceHandler {
         this.pwrZones = convertPowerZones(pwrconfig.ftp, pwrconfig.zones);
 
         // Bind event handler to this in order to set the right context
-        this.onPerformanceHandler = this.onPerformanceHandler.bind(this);
+        this.onPerformanceData = this.onPerformanceData.bind(this);
     }
 
     /**
@@ -269,7 +269,7 @@ export default class PowerHeartRateMode implements PerformanceHandler {
      * 
      * @param data The ANT+ data content
      */
-    public onPerformanceHandler(data: PerformanceData): void {
+    public onPerformanceData(data: PerformanceData): void {
         if (!data.heartRate || !data.averagePower) {
             // All data must be present; otherwise discard callback
             this.logger.debug(`Discarding data handler: ${data.heartRate} / ${data.averagePower}`);

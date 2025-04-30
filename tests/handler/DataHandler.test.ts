@@ -51,7 +51,7 @@ describe('AntConnector AntHandler Integration', () => {
     mockLogger = { info: jest.fn(), debug: jest.fn(), error: jest.fn() } as unknown as Logger<ILogObj>;
 
     mockHandler = {
-      onPerformanceHandler: jest.fn(),
+      onPerformanceData: jest.fn(),
       cleanUp: jest.fn().mockResolvedValue(undefined)
     };
 
@@ -82,7 +82,7 @@ describe('AntConnector AntHandler Integration', () => {
     const data: HeartRateSensorState = { ComputedHeartRate: 165, BeatCount: 2 } as HeartRateSensorState;
     antConn['onData']('HR', 12345, data);
 
-    expect(mockHandler.onPerformanceHandler).toHaveBeenCalledWith(mockPerformanceData, mockEnvironmentData);
+    expect(mockHandler.onPerformanceData).toHaveBeenCalledWith(mockPerformanceData, mockEnvironmentData);
   });
 
   it('should call cleanUp() on dataHandlerStandBy()', async () => {
@@ -98,6 +98,6 @@ describe('AntConnector AntHandler Integration', () => {
     const data: HeartRateSensorState = { ComputedHeartRate: 170, BeatCount: 3 } as HeartRateSensorState;
     antConn['onData']('HR', 12345, data);
 
-    expect(mockHandler.onPerformanceHandler).not.toHaveBeenCalled();
+    expect(mockHandler.onPerformanceData).not.toHaveBeenCalled();
   });
 });

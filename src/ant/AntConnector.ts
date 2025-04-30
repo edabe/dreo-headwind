@@ -253,9 +253,9 @@ export default class AntConnector {
 
         // Only process data if the PWR and HR sensors are active 
         if (this.shouldHandleData()) {
-            this.performanceMetrics.onEventHandler(this.cachedPerfDataType as EventData);
+            this.performanceMetrics.onEventData(this.cachedPerfDataType as EventData);
             const perfData = this.performanceMetrics.getPerformanceData();
-            this.performanceHandlers.forEach(handler => handler.onPerformanceHandler(perfData, this.cachedEnvDataType));
+            this.performanceHandlers.forEach(handler => handler.onPerformanceData(perfData, this.cachedEnvDataType));
         }
     }
 

@@ -52,7 +52,7 @@ export abstract class PerformanceHandler {
      * @param performance The object containing physiology data.
      * @param environment The object containing environment data.
      */
-    public abstract onPerformanceHandler(performance: PerformanceData, environment: EnvironmentData): void;
+    public abstract onPerformanceData(performance: PerformanceData, environment: EnvironmentData): void;
 
     /**
      * Cleanup function.
@@ -74,7 +74,7 @@ export abstract class SensorHandler {
      * 
      * @param event The aggregated ANT sensor data (HR, Power and Cadence profiles).
      */
-    public abstract onEventHandler(event: EventData): void;
+    public abstract onEventData(event: EventData): void;
 
     /**
      * Cleanup function.
